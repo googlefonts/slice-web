@@ -22,7 +22,7 @@
 //! | `STAT` | design axis records for pinned axes removed, axis values re-indexed |
 //! | `HVAR` | **dropped** for `glyf`, **rebuilt** for `CFF2`. Dropping it loses nothing on a TrueType font: advance widths vary through the phantom points in `gvar`, which are rebased along with everything else, and a renderer falls back to them when `HVAR` is absent. A CFF2 glyph has no phantom points, so `HVAR` is the only place its advance varies and it has to be re-tented instead. |
 //! | `VVAR` | **dropped.** Vertical metrics are not otherwise handled here; see the README. |
-//! | `MVAR` | applied at the new default and then dropped, so the metrics are right there but no longer vary across whatever range is left. |
+//! | `MVAR` | re-tented onto the surviving axes, so the metrics go on varying across whatever range is left; the residual at the new default is baked into `OS/2` and `post`. Dropped only when nothing is left to vary. |
 //! | `GDEF` / `GPOS` variation stores | **re-tented.** The store's regions are rebased onto the surviving axes, and the residual it leaves at the new default location is written back into the `GPOS` value records, anchors and ligature carets that address it. Without that last step the kerning would be right at the default and wrong everywhere else, which is exactly what pinning an axis away from its default produces. See `gpos_residual`. |
 
 use std::collections::BTreeMap;
@@ -693,7 +693,7 @@ fn finish_partial<'a>(
         // makes the builder already hold it by the time this runs.
         Tag::new(b"HVAR"),
         Tag::new(b"VVAR"),
-        // Applied above, then dropped.
+        // Rebuilt above and added there, so what is skipped here is the original.
         Tag::new(b"MVAR"),
     ];
     super::statics::copy_remaining_tables(out, font, REPLACED);

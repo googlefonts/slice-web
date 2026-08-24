@@ -376,8 +376,7 @@ Stated plainly, because a font tool that is quiet about its gaps is worse than o
 
 \begin{itemize}
   \item \textbf{CFF 1.0 fonts are refused.} A plain \texttt{CFF } font is not variable to begin with. CFF2 variable fonts are supported.
-  \item \textbf{\texttt{avar} version 2} is refused for partial instancing.
-  \item \textbf{\texttt{MVAR} across a restricted range} is applied at the new default and then dropped, so vertical metrics are correct there but stop varying across the remaining range.
+  \item \textbf{\texttt{avar} version 2} is refused for \emph{partial} instancing, as it is by fontTools, which declines the same job. Pinning every axis works, and is exact.
   \item \textbf{WOFF2 output is about 19\% larger} than what \texttt{woff2\_compress} produces on a glyf-heavy font, because the glyph transform is not implemented on the writing side. The output is a conformant WOFF2 that every browser reads.
   \item \textbf{The engine runs on the main thread}, so the page stops responding while a large font is processed. The progress dialog says so rather than animating a bar that is not measuring anything.
 \end{itemize}
@@ -387,13 +386,19 @@ Stated plainly, because a font tool that is quiet about its gaps is worse than o
 Every behavioural claim in this manual is tested, and the tests are readable:
 
 \begin{itemize}
-  \item \textbf{\href{https://felipesanches.github.io/slice-web/test-suite.html}{The test suite in plain English}} --- all 297 conformance cases, each with the reasoning for why that is the right answer.
+  \item \textbf{\href{https://felipesanches.github.io/slice-web/test-suite.html}{The test suite in plain English}} --- all 301 conformance cases, each with the reasoning for why that is the right answer.
   \item \textbf{\href{https://felipesanches.github.io/slice-web/adjudication.html}{Adjudication}} --- every case the original Slice fails, with the measurement behind each verdict.
   \item \textbf{\href{https://felipesanches.github.io/slice-web/real-world-sweep.html}{The real-world sweep}} --- what happens on 775 real variable fonts from Google Fonts: 177,154 glyphs compared against fontTools with no disagreements.
   \item \textbf{\href{https://felipesanches.github.io/slice-web/original-behaviour.html}{The behaviour map}} --- the numbered map of the original program's behaviour that the suite is written against.
 \end{itemize}
 
 Absolute URLs rather than filenames, so the same line works in the PDF, on the website and in the repository.
+
+\subsection{Which version you are running}
+
+The status bar shows the version and, beside it, the commit the build was made from, linked to that commit on GitHub. The web version is rebuilt and republished on every push, so the version number alone cannot tell you whether a fix has reached you; the commit can. Quote it when reporting a problem --- it identifies the code you were running exactly, which nothing else does.
+
+A build made from a working copy with uncommitted changes is labelled \texttt{(modified)} and is deliberately \emph{not} linked, because the commit it names is not the code that is running. A build made outside a git checkout says \texttt{unknown build}. Neither happens to the published version.
 
 \section{Credits and licence}
 

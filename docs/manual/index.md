@@ -369,9 +369,8 @@ them.
 
 - **CFF 1.0 fonts are refused.** A plain `CFF ` font is not variable to begin with. CFF2
   variable fonts are supported.
-- **`avar` version 2** is refused for partial instancing.
-- **`MVAR` across a restricted range** is applied at the new default and then dropped, so
-  vertical metrics are correct there but stop varying across the remaining range.
+- **`avar` version 2** is refused for *partial* instancing, as it is by fontTools, which
+  declines the same job. Pinning every axis works, and is exact.
 - **WOFF2 output is about 19% larger** than what `woff2_compress` produces on a
   glyf-heavy font, because the glyph transform is not implemented on the writing side. The
   output is a conformant WOFF2 that every browser reads.
@@ -384,7 +383,7 @@ them.
 Every behavioural claim in this manual is tested, and the tests are readable:
 
 - **[The test suite in plain English](https://felipesanches.github.io/slice-web/test-suite.html)**
-  — all 297 conformance cases, each with the reasoning for why that is the right answer.
+  — all 301 conformance cases, each with the reasoning for why that is the right answer.
 - **[Adjudication](https://felipesanches.github.io/slice-web/adjudication.html)** — every
   case the original Slice fails, with the measurement behind each verdict.
 - **[The real-world sweep](https://felipesanches.github.io/slice-web/real-world-sweep.html)**
@@ -395,6 +394,19 @@ Every behavioural claim in this manual is tested, and the tests are readable:
 
 Absolute URLs rather than filenames, so the same line works in the PDF, on the website and
 in the repository.
+
+### Which version you are running
+
+The status bar shows the version and, beside it, the commit the build was made from,
+linked to that commit on GitHub. The web version is rebuilt and republished on every
+push, so the version number alone cannot tell you whether a fix has reached you; the
+commit can. Quote it when reporting a problem — it identifies the code you were running
+exactly, which nothing else does.
+
+A build made from a working copy with uncommitted changes is labelled `(modified)` and is
+deliberately *not* linked, because the commit it names is not the code that is running. A
+build made outside a git checkout says `unknown build`. Neither happens to the published
+version.
 
 ## Credits and licence
 

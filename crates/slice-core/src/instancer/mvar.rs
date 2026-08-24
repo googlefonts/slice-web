@@ -1,10 +1,18 @@
-//! Applying `MVAR` before it is discarded.
+//! `MVAR`: baking it in, and carrying it across.
 //!
 //! `MVAR` is how a variable font says that its ascender, x-height, underline position and
-//! so on move as you travel through the design space. A static instance has nowhere to
-//! keep that, so the deltas have to be baked into `OS/2`, `hhea` and `post` on the way
-//! out. Skipping this step is a quiet way to ship an instance whose vertical metrics are
-//! those of the default master rather than the one that was asked for.
+//! so on move as you travel through the design space.
+//!
+//! For a static instance there is nowhere left to keep that, so the deltas are baked into
+//! `OS/2`, `hhea` and `post` on the way out and the table goes. Skipping that step is a
+//! quiet way to ship an instance whose vertical metrics are the default master's rather
+//! than the ones that were asked for.
+//!
+//! For a partial instance the table survives: `rebuild` re-tents it onto the axes that
+//! are left, so the metrics go on varying across the range that remains, and returns the
+//! residual at the new default for baking in alongside. Applying and dropping it here
+//! would freeze the metrics -- a font narrowed to wght 300:700 would keep its 300
+//! x-height all the way to 700.
 
 use std::collections::HashMap;
 
