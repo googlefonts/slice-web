@@ -192,3 +192,30 @@ Three differences are allowlisted and explained in the script's docstring: table
 (fontTools re-specializes the operators, this does not), `STAT` and name records (`slice
 cut` runs the whole pipeline and `instantiateVariableFont` does not), and an `HVAR` whose
 store has no regions left, which fontTools keeps as a shell and this drops.
+
+## `commit-stamp-check.sh`
+
+**Does the commit hash shown in the interface actually follow HEAD?**
+
+The status bar links the running build to a commit on GitHub. That link is worth nothing
+unless it is right, and the way it goes wrong is not a crash: cargo caches build script
+output, so `crates/slice-web/build.rs` can capture a hash once and keep reporting it
+through every later commit, naming a stale commit with complete confidence.
+
+The unit tests in `crates/slice-web/src/ui/dialogs.rs` cover how a stamp is *rendered* —
+short hash, `(modified)`, `unknown build`, and when a link is withheld. They cannot cover
+this, because this is a question about cargo's behaviour across two builds rather than
+about any function. So the script clones the repository, stamps it, moves HEAD, stamps
+again in the same target directory, and requires the second stamp to have moved with it;
+then it edits a tracked file and requires the `+` that marks a modified tree.
+
+```sh
+tools/commit-stamp-check.sh
+```
+
+Takes a few minutes and needs a few hundred megabytes: it builds the dependency tree once
+in its own target directory. Sharing the repository's was tried and produced a **vacuous
+pass** — cargo reused the compiled crate wholesale, no build script ran at all, and the
+probe read the repository's own stamp believing it had read the clone's. The script now
+asserts that the build script output it reads names the clone's `.git`, so that failure
+reports itself rather than reporting success.
