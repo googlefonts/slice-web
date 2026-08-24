@@ -13,7 +13,12 @@
 //!   on `HEAD` and on whatever ref it points at covers both a new commit and a branch
 //!   switch.
 //! * **Uncommitted changes.** A local build from a dirty tree is not the commit it names.
-//!   It gets a `+` and the interface declines to link it.
+//!   It gets a `+` and the interface declines to link it. Detecting that needs the script
+//!   to re-run when *any* tracked file changes, not just when a commit lands -- editing a
+//!   source file does not touch `.git/HEAD`, so without watching the files themselves
+//!   cargo hands back the previous clean stamp and the page links a modified build to a
+//!   commit that does not describe it. That was this mechanism's real failure mode, and
+//!   `tools/commit-stamp-check.sh` is what found it.
 //! * **No git at all.** A source tarball, or a build in a container without the `.git`
 //!   directory. The stamp becomes `unknown` and the interface shows the version alone.
 //!
@@ -47,7 +52,32 @@ fn main() {
             }
         }
     }
+    watch_tracked_files();
     println!("cargo:rerun-if-env-changed=GITHUB_SHA");
+}
+
+/// Watch every file git tracks, so that editing one re-runs this and the `+` appears.
+///
+/// The list comes from git rather than from a directory walk because it has to agree with
+/// what `git status` calls a modification -- and because a walk would sweep in `target/`,
+/// which changes on every build and would leave the script re-running forever.
+///
+/// A couple of hundred files costs cargo a `stat` each. That is nothing beside the build
+/// it precedes, and it buys a stamp that cannot quietly describe the wrong code.
+fn watch_tracked_files() {
+    // `:/` for the whole repository and `--full-name` for paths relative to its root:
+    // this runs in the package directory, and the plain form would list only the files
+    // beneath it. See `from_git` for why that scoping is easy to miss.
+    let Some(list) = run(&["ls-files", "-z", "--full-name", "--", ":/"]) else {
+        return;
+    };
+    let Some(root) = run(&["rev-parse", "--show-toplevel"]) else {
+        return;
+    };
+    let root = Path::new(&root);
+    for file in list.split('\0').filter(|file| !file.is_empty()) {
+        println!("cargo:rerun-if-changed={}", root.join(file).display());
+    }
 }
 
 fn from_ci() -> Option<String> {
@@ -61,7 +91,12 @@ fn from_git() -> Option<String> {
     // `--porcelain` is empty exactly when the tree matches the commit. Untracked files
     // are excluded: they are not part of the build, and a stray note in the working
     // directory should not mark an otherwise faithful build as modified.
-    let dirty = run(&["status", "--porcelain", "--untracked-files=no"])
+    //
+    // The `:/` pathspec means "the whole repository". Cargo runs this from the package
+    // directory, and git commands scope themselves to where they are run, so without it
+    // the question asked would be "has anything under crates/slice-web changed" -- and an
+    // edit to the engine in slice-core, which is most of the code, would not count.
+    let dirty = run(&["status", "--porcelain", "--untracked-files=no", "--", ":/"])
         .map(|out| !out.is_empty())
         .unwrap_or(false);
 
