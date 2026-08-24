@@ -10,6 +10,8 @@ something that is already in the tree.
 | `browser-smoke.sh` | Does the application start in a real browser and read a font through it? |
 | `browser-slice-test.py` | If someone fills in the editors and presses Slice, do they get the font they asked for? |
 | `compare-with-fonttools.py` | Does slicing a font here give the same font the original Slice would have given? |
+| `fontspector-compare.py` | Does slicing introduce problems fontspector can see? Compares before and against, and discounts anything fontTools' own instance also produces. |
+| `diffenator3-compare.py` | Does a font sliced here *render* the same as one sliced by fontTools — glyphs and shaped words, pixel by pixel? |
 | `corpus-sweep.py` | Pointed at hundreds of real variable fonts nobody designed a test around, does it crash, does it produce a readable font, and does that font agree with fontTools? |
 | `compare-cff2-with-fonttools.py` | Does instancing a CFF2 font resolve the same blends into the same charstrings fontTools writes? |
 | `overlap-engine-eval/` | Would `linesweeper` remove overlaps correctly on the shapes `flo_curves` gets wrong, and can it be used from WebAssembly? (a cargo crate; see its own README) |
