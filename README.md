@@ -237,6 +237,28 @@ rules out the tempting shortcut of unioning the outer-wound contours and subtrac
 inner-wound ones), overlapping rings, same-direction nesting, and a self-intersecting bow
 tie. `tools/overlap-engine-eval/` is the harness the engine choice was measured with.
 
+### Variable positioning
+
+A `GDEF` item variation store — variable kerning and anchor positions — is re-tented onto
+the narrowed axes like everything else. Re-tenting leaves a residual, the value at the
+*new* default location, and that residual is written back into the `GPOS` value records,
+anchors and ligature carets that address the store.
+
+The residual is zero whenever every other axis stays at its default, which is why the
+first implementation could get away without it. Pinning an axis *away* from its default is
+what makes it non-zero: the kerning at `CASL=1` is not the kerning at `CASL=0`, and once
+`CASL` is gone the difference has to live in the values themselves. A quarter of the
+variable fonts in Google Fonts have both a store and more than one axis, so it is a case
+worth getting right rather than refusing.
+
+Checked against fontTools on the real Recursive, `CASL` pinned at 1 with `wght` restricted
+to 300:700: **6,439 kerning pairs, identical at wght 300, 500 and 700**. The interior
+sample is the one that matters — a store re-tented without its residual is exactly right at
+the default and wrong everywhere else.
+
+`GSUB`/`GPOS` *feature variations* — the conditional substitutions `rvrn` uses — are
+resolved separately.
+
 ## Where it deliberately differs from the original
 
 Everything the original does, this does, and the results are diffed against fontTools to
@@ -290,14 +312,6 @@ has them.
   brotli-compressed as they stand rather than re-encoded into the transform's streams.
   (On a small variable subset, where `gvar` and the layout tables dominate, it is
   actually a shade smaller.) See `crates/slice-core/src/font/woff2.rs` for the numbers.
-- **Variable positioning at a moved default.** A `GDEF` item variation store --
-  variable kerning and anchors -- is re-tented onto the narrowed axes along with
-  everything else, so partial instancing works on fonts that carry one. The one case
-  still refused is a rebuild that would leave a non-zero residual at the new default
-  location, which cannot happen under Level 3 sub-spacing because the default never
-  moves; the code checks rather than assumes, and names the subtable if it ever fires.
-  (`GSUB`/`GPOS` *feature variations* -- the conditional substitutions `rvrn` uses --
-  are resolved as well.)
 - **`MVAR` across a restricted range.** Applied at the new default and then dropped, so
   vertical metrics are right there but stop varying across whatever range is left.
 - **`avar` version 2.** Refused for partial instancing.

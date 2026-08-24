@@ -2631,9 +2631,8 @@
         "G2",
         "G13"
       ],
-      "ours_lacks_feature": true,
       "class": "fonttools",
-      "rationale": "A `GDEF` item variation store re-tents cleanly as long as every other axis stays at its default, because deltas are measured from the default master and the residual at the new default location is then zero. Pinning an axis *away* from its default breaks that: the kerning at `wdth=50` differs from the kerning at `wdth=100` by exactly that residual, and it has to be written back into the GPOS value records and anchors. fontTools does this and the original therefore passes, so by the rule this corpus is under, this implementation must too. It does not yet -- it refuses, naming the axis responsible, which is safe but is a real gap: 189 of the 767 variable fonts in Google Fonts have both a store and more than one axis, so a quarter of them can reach it. Marked `ours_lacks_feature` so the gap is reported rather than hidden, and the interior sample is what would catch a store re-tented without its residual.",
+      "rationale": "A `GDEF` item variation store re-tents cleanly as long as every other axis stays at its default, because deltas are measured from the default master and the residual at the new default location is then zero. Pinning an axis *away* from its default breaks that: the kerning at `wdth=50` differs from the kerning at `wdth=100` by exactly that residual, and it has to be written back into the GPOS value records and anchors that address the store. This case existed first as a recorded gap -- the implementation refused the job while fontTools did it -- and the interior sample is what holds the fix honest: a store re-tented without its residual is still exactly right at the default and wrong everywhere else, which no single-location check would notice.",
       "fixture": "gdef-varstore",
       "input": {
         "axes": {

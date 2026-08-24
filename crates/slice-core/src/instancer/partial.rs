@@ -23,7 +23,7 @@
 //! | `HVAR` | **dropped** for `glyf`, **rebuilt** for `CFF2`. Dropping it loses nothing on a TrueType font: advance widths vary through the phantom points in `gvar`, which are rebased along with everything else, and a renderer falls back to them when `HVAR` is absent. A CFF2 glyph has no phantom points, so `HVAR` is the only place its advance varies and it has to be re-tented instead. |
 //! | `VVAR` | **dropped.** Vertical metrics are not otherwise handled here; see the README. |
 //! | `MVAR` | applied at the new default and then dropped, so the metrics are right there but no longer vary across whatever range is left. |
-//! | `GDEF` / `GPOS` variation stores | **refused.** Their regions describe the old axis space, so leaving them gives wrong positioning and removing them dangles the indices that point into them. Rather than ship either, a font that has them is rejected with an explanation. |
+//! | `GDEF` / `GPOS` variation stores | **re-tented.** The store's regions are rebased onto the surviving axes, and the residual it leaves at the new default location is written back into the `GPOS` value records, anchors and ligature carets that address it. Without that last step the kerning would be right at the default and wrong everywhere else, which is exactly what pinning an axis away from its default produces. See `gpos_residual`. |
 
 use std::collections::BTreeMap;
 
@@ -32,6 +32,7 @@ use write_fonts::tables::avar::{Avar, AxisValueMap, SegmentMaps};
 use write_fonts::tables::fvar::InstanceRecord;
 use write_fonts::tables::fvar::{AxisInstanceArrays, Fvar, VariationAxisRecord};
 use write_fonts::tables::glyf::{GlyfLocaBuilder, Glyph as WGlyph};
+use write_fonts::tables::gpos::Gpos;
 use write_fonts::tables::gvar::{GlyphDelta, GlyphDeltas, GlyphVariations, Gvar};
 use write_fonts::tables::variations::Tent;
 use write_fonts::types::{F2Dot14, Fixed, GlyphId, Tag};
@@ -526,34 +527,24 @@ fn partial_cff2(font: &FontRef, plans: &[AxisPlan]) -> Result<Vec<u8>, SliceErro
     finish_partial(&mut out, font, &metrics, None, plans)
 }
 
-/// Re-tent `GDEF`'s item variation store onto the axes that survive.
+/// Re-tent `GDEF`'s item variation store, and write its residual back into `GPOS`.
 ///
-/// Returns `None` when the font has no GDEF or no store in it, in which case the table is
-/// copied through untouched like any other.
+/// Returns the rebuilt `GDEF` and `GPOS`, or `None` when the font has no store, in which
+/// case both tables are copied through untouched like any others.
 ///
-/// A store carries, for each delta set, a part that still depends on the surviving axes
-/// and a part that does not -- the residual at the new default location, which
-/// `varstore::rebuild` reports as `default_deltas`. For HVAR that residual is baked into
-/// `hmtx`. Here there is nowhere to bake it: the values a GDEF store modifies are GPOS
-/// value records and anchors scattered across the layout tables, and rewriting those
-/// means walking every lookup.
+/// Re-tenting splits every delta set into a part that still varies over the surviving
+/// axes and a constant — the value at the *new* default location. For `HVAR` the constant
+/// is baked into `hmtx`. `GDEF`'s has no single home: it belongs to the `GPOS` value
+/// records, anchors and ligature carets that address the store, one constant each. See
+/// `gpos_residual`.
 ///
-/// It is zero when every *other* axis stays at its default, because deltas are measured
-/// from the default master and Level 3 sub-spacing cannot move the default of the axis
-/// being restricted. An earlier version of this comment claimed that made it impossible,
-/// which was wrong: **pinning another axis away from its default produces one**. Pin
-/// `CASL=1` while restricting `wght` and the kerning at CASL=1 differs from the kerning
-/// at CASL=0 by exactly this residual, and that difference has to go somewhere.
-///
-/// So the check below is not a formality. fontTools handles the case by rewriting the
-/// GPOS values; this refuses, which is safe but is a real limitation -- 189 of the 767
-/// variable fonts in Google Fonts have both a GDEF store and more than one axis, so it is
-/// reachable on a quarter of them. The alternative to refusing would be kerning silently
-/// wrong everywhere except one location, which is worse than an error message.
+/// The constant is zero whenever every other axis stays at its default, because deltas are
+/// measured from the default master. Pinning an axis *away* from its default is what makes
+/// it non-zero, and this used to refuse that case.
 fn rebuilt_gdef(
     font: &FontRef,
     plans: &[AxisPlan],
-) -> Result<Option<write_fonts::tables::gdef::Gdef>, SliceError> {
+) -> Result<Option<(write_fonts::tables::gdef::Gdef, Option<Gpos>)>, SliceError> {
     let Ok(gdef) = font.gdef() else {
         return Ok(None);
     };
@@ -563,49 +554,35 @@ fn rebuilt_gdef(
     let store = store.map_err(|e| SliceError::Read(format!("GDEF is malformed: {e}")))?;
 
     let rebuilt = super::varstore::rebuild(&store, plans)?;
-
-    if let Some((subtable, row)) =
-        rebuilt
-            .default_deltas
-            .iter()
-            .enumerate()
-            .find_map(|(i, gains)| {
-                gains
-                    .iter()
-                    .position(|gain| gain.abs() > 0.5)
-                    .map(|j| (i, j))
-            })
-    {
-        let pinned_off_default: Vec<&str> = plans
-            .iter()
-            .filter(|plan| plan.is_pinned() && plan.normalized.default != 0.0)
-            .map(|plan| plan.spec.tag.as_str())
-            .collect();
-        let because = if pinned_off_default.is_empty() {
-            String::new()
-        } else {
-            format!(
-                " This is because {} pinned away from its default, which moves the \
-                 kerning that the surviving axes are measured from.",
-                if pinned_off_default.len() == 1 {
-                    format!("{} is", pinned_off_default[0])
-                } else {
-                    format!("{} are", pinned_off_default.join(", "))
-                }
-            )
-        };
-        return Err(SliceError::Unsupported(format!(
-            "Restricting an axis on this font would change its variable kerning at the \
-             new default location (GDEF item variation store, subtable {subtable}, delta \
-             set {row}), and rewriting the positioning values to compensate is not \
-             implemented.{because} Either leave those axes at their defaults, or pin every \
-             axis, which produces a static instance."
-        )));
-    }
-
     let mut owned: write_fonts::tables::gdef::Gdef = gdef.to_owned_table();
+
+    let residual =
+        super::gpos_residual::Residual::new(&rebuilt.default_deltas, rebuilt.store.is_none());
+
+    // Only touch GPOS when there is something to say. Rewriting it otherwise would
+    // re-serialise every lookup in the font for no change, and re-serialising is where
+    // subtle differences creep in.
+    let gpos = if residual.is_noop() {
+        None
+    } else {
+        match font.gpos() {
+            Ok(gpos) => {
+                let mut owned_gpos: Gpos = gpos.to_owned_table();
+                super::gpos_residual::apply(&mut owned_gpos, &mut owned, &residual);
+                Some(owned_gpos)
+            }
+            Err(_) => {
+                // A store with no GPOS to modify: the carets in GDEF are still corrected
+                // by the call below, which is the only other thing that can address it.
+                let mut empty = Gpos::default();
+                super::gpos_residual::apply(&mut empty, &mut owned, &residual);
+                None
+            }
+        }
+    };
+
     owned.item_var_store = rebuilt.store.into();
-    Ok(Some(owned))
+    Ok(Some((owned, gpos)))
 }
 
 /// Everything a partial instance needs once its outlines and metrics are settled.
@@ -656,9 +633,15 @@ fn finish_partial<'a>(
     // onto the narrowed axes is the same operation HVAR needs, so it is the same code;
     // `varstore::rebuild` preserves every address, which is what keeps the delta-set
     // index maps and the GPOS references pointing at the row they always pointed at.
-    if let Some(gdef) = rebuilt_gdef(font, plans)? {
+    if let Some((gdef, gpos)) = rebuilt_gdef(font, plans)? {
         out.add_table(&gdef)
             .map_err(|e| SliceError::Write(e.to_string()))?;
+        // Only present when the residual was non-zero; otherwise GPOS is copied through
+        // by `copy_remaining_tables` exactly as it arrived.
+        if let Some(gpos) = gpos {
+            out.add_table(&gpos)
+                .map_err(|e| SliceError::Write(e.to_string()))?;
+        }
     }
 
     // MVAR is applied at the new default and then dropped; see the module docs.

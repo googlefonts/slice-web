@@ -3,6 +3,7 @@
 pub mod cff2;
 pub mod feature_vars;
 pub mod glyphs;
+pub mod gpos_residual;
 pub mod iup;
 pub mod mvar;
 pub mod normalize;
