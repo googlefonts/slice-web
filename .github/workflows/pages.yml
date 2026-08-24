@@ -35,6 +35,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: jetli/wasm-pack-action@v0.4.0
 
+      # The interface shows the commit it was built from, taken from GITHUB_SHA by
+      # `crates/slice-web/build.rs`. That variable is set by the runner for every step,
+      # so there is nothing to pass here -- but note that `rust-cache` above restores a
+      # populated `target/`, and it is the build script's `rerun-if-env-changed` on
+      # GITHUB_SHA that stops a cached stamp from outliving the commit it names. Removing
+      # that line would leave this deploying one commit while claiming another.
       - name: Build the application
         run: ./build.sh
 

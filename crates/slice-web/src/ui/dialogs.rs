@@ -6,6 +6,96 @@ use crate::state::AppState;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// The commit this was built from, stamped by `build.rs`.
+///
+/// `unknown` when there was no git to ask, and suffixed with `+` when the tree had
+/// uncommitted changes — in which case it is not the commit it names and must not be
+/// offered as a link to one.
+pub const COMMIT: &str = env!("SLICE_COMMIT");
+
+/// Where the repository lives, for turning a commit into something clickable.
+pub const REPOSITORY: &str = "https://github.com/felipesanches/slice-web";
+
+/// The commit as a person should read it: seven characters, or a word saying why not.
+pub fn commit_label() -> String {
+    label_for(COMMIT)
+}
+
+/// The commit's URL, or `None` when there is nothing honest to link to.
+pub fn commit_url() -> Option<String> {
+    url_for(COMMIT)
+}
+
+/// The two above, as functions of their input rather than of the build, so that the
+/// cases that matter can be tested without arranging three different builds to get them.
+fn label_for(commit: &str) -> String {
+    if commit == "unknown" {
+        return "unknown build".into();
+    }
+    let short: String = commit.chars().take(7).collect();
+    if commit.ends_with('+') {
+        format!("{short} (modified)")
+    } else {
+        short
+    }
+}
+
+/// A build from a dirty tree gets no link. The commit it names exists, but the code
+/// running is not that code, and a link would quietly claim otherwise -- which is the
+/// one failure this whole mechanism is meant to prevent.
+fn url_for(commit: &str) -> Option<String> {
+    if commit == "unknown" || commit.ends_with('+') {
+        return None;
+    }
+    Some(format!("{REPOSITORY}/commit/{commit}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CLEAN: &str = "0ffd3fd92c7614acbeaf3511ee07a9bf3ea45360";
+
+    #[test]
+    fn a_clean_build_links_to_its_full_commit() {
+        // Full hash in the href, short one on screen: the link has to resolve, the label
+        // has to fit in a status bar.
+        assert_eq!(label_for(CLEAN), "0ffd3fd");
+        assert_eq!(
+            url_for(CLEAN).unwrap(),
+            format!("{REPOSITORY}/commit/{CLEAN}")
+        );
+    }
+
+    #[test]
+    fn a_modified_tree_is_never_linked_to_a_commit() {
+        let dirty = format!("{CLEAN}+");
+        assert_eq!(url_for(&dirty), None);
+        assert_eq!(label_for(&dirty), "0ffd3fd (modified)");
+    }
+
+    #[test]
+    fn a_build_with_no_git_says_so_rather_than_inventing_one() {
+        assert_eq!(url_for("unknown"), None);
+        assert_eq!(label_for("unknown"), "unknown build");
+    }
+
+    #[test]
+    fn the_stamp_this_was_built_with_is_one_of_the_three_shapes() {
+        // Guards the build script's contract from the other side: whatever it emitted for
+        // *this* build must be something the interface can render.
+        assert!(
+            COMMIT == "unknown"
+                || (COMMIT.trim_end_matches('+').len() == 40
+                    && COMMIT
+                        .trim_end_matches('+')
+                        .chars()
+                        .all(|c| c.is_ascii_hexdigit())),
+            "build.rs emitted an unusable commit stamp: {COMMIT:?}"
+        );
+    }
+}
+
 /// The error dialog: one sentence, with the technical detail behind a disclosure.
 ///
 /// This is the shape the original uses, and it is the right one: the sentence is for the
@@ -87,7 +177,20 @@ pub fn AboutDialog(state: AppState) -> impl IntoView {
                         <SliceLogo/>
                         <h2 id="about-title">"Slice"</h2>
                     </div>
-                    <p>"Version " {VERSION}</p>
+                    <p>
+                        "Version " {VERSION} " · "
+                        {move || match commit_url() {
+                            Some(url) => {
+                                view! {
+                                    <a href=url target="_blank" rel="noreferrer">
+                                        {commit_label()}
+                                    </a>
+                                }
+                                    .into_any()
+                            }
+                            None => view! { <span>{commit_label()}</span> }.into_any(),
+                        }}
+                    </p>
                     <p class="about-lead">
                         "Builds custom design sub-spaces from variable fonts, in the "
                         "browser. Fonts are read and written locally; nothing is uploaded."

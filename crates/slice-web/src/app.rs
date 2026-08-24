@@ -8,7 +8,9 @@ use web_sys::{HtmlInputElement, HtmlSelectElement};
 
 use crate::files;
 use crate::state::AppState;
-use crate::ui::dialogs::{AboutDialog, ErrorDialog, ProgressDialog, SliceLogo, VERSION};
+use crate::ui::dialogs::{
+    commit_label, commit_url, AboutDialog, ErrorDialog, ProgressDialog, SliceLogo, VERSION,
+};
 use crate::ui::editors::{AxisEditor, BitFlagEditor, NameEditor};
 use crate::ui::menubar::MenuBar;
 
@@ -213,7 +215,31 @@ pub fn App() -> impl IntoView {
 
             <footer class="statusbar">
                 <span class="status">{move || state.status.get()}</span>
-                <span class="version">"v" {VERSION}</span>
+                <span class="version">
+                    "v" {VERSION}
+                    // The commit this page was built from, so that what is running here
+                    // can be read rather than guessed at. A build from a modified tree
+                    // gets the label without the link -- see `commit_url`.
+                    {move || match commit_url() {
+                        Some(url) => {
+                            view! {
+                                <a
+                                    class="commit"
+                                    href=url
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="The commit this build came from"
+                                >
+                                    {commit_label()}
+                                </a>
+                            }
+                                .into_any()
+                        }
+                        None => {
+                            view! { <span class="commit">{commit_label()}</span> }.into_any()
+                        }
+                    }}
+                </span>
             </footer>
 
             <input

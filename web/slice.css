@@ -559,6 +559,22 @@ button.secondary:hover {
   font-family: var(--mono);
   color: var(--ink-faint);
 }
+/* The commit hash sits beside the version, quieter than it and separated by a
+   middot drawn rather than typed, so the two read as one stamp. */
+.statusbar .version .commit::before {
+  content: "·";
+  margin: 0 0.4em;
+  color: var(--ink-faint);
+}
+.statusbar .version a.commit {
+  color: var(--ink-faint);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.statusbar .version a.commit:hover,
+.statusbar .version a.commit:focus-visible {
+  color: var(--accent);
+}
 
 /* ------------------------------------------------------------------ dialogs */
 
