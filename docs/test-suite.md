@@ -37,11 +37,11 @@ Every case is labelled with where its authority comes from:
 | label | meaning | cases |
 |---|---|---|
 | `spec` | the OpenType specification requires it | 86 |
-| `fonttools` | inherited from fontTools, which the original delegates to | 106 |
+| `fonttools` | inherited from fontTools, which the original delegates to | 107 |
 | `slice-ui` | the application's own contract | 74 |
 | `judgement` | a defensible design choice with no external authority | 34 |
 
-There are **300 cases** in total, across 6 areas.
+There are **301 cases** in total, across 6 areas.
 17 of them require removing overlaps, which the original never
 had; it is expected to fail those, and that is not counted against it.
 
@@ -52,7 +52,7 @@ had; it is expected to fail those, and that is not counted against it.
 - [names](#names) — 45 cases
 - [outlines-containers](#outlines-containers) — 57 cases
 - [partial-instancing](#partial-instancing) — 59 cases
-- [static-instancing](#static-instancing) — 50 cases
+- [static-instancing](#static-instancing) — 51 cases
 
 ## axis-syntax
 
@@ -2090,6 +2090,14 @@ Pinning every axis, which is what most people come to Slice for: one weight, fro
 
 Covers claims: A1, A3, B3, G1, G10, G11, G12, G13, G3, G5, G6, G7, G8, G9.
 
+### `static.avar2.axes-that-move-each-other-are-honoured`
+
+**An avar version 2 font instances at the location its axes actually resolve to**
+
+`avar` version 1 warps each axis independently through its own segment map. Version 2 adds an item variation store on top, so an axis's final coordinate can depend on where the *other* axes are -- optical size pulling on weight, a width axis changing what a grade means. Ignoring that store does not produce a refusal or a crash; it produces a font instanced at the wrong location, silently. Measured on this fixture before the store was implemented, the outlines sat **173 font units** from what fontTools draws at the same place, which is a visibly different letter. The tolerance here is zero because every axis is pinned, so the arithmetic is exact and there is nothing to round. Note that *partial* instancing of an avar2 font is refused, by this implementation and by fontTools alike, which raises NotImplementedError for it.
+
+<sub>covers G3, G13 · authority: `fonttools` · fixture: `avar2`</sub>
+
 ### `static.composites.maxp-and-bbox`
 
 **Composite maxp fields and bounding boxes are recalculated through the component tree**
@@ -2550,7 +2558,7 @@ that a reimplementation knows they exist, not because the corpus checks them.
 | F3 | 3 | The job is refused if it does not narrow the design space (B13) |
 | G1 | 26 | Pinning every axis yields a static font: no `fvar`, no `gvar`, no |
 | G2 | 43 | Pinning some axes and restricting others yields a variable font |
-| G3 | 10 | `avar` segment maps are renormalized onto the new extents |
+| G3 | 11 | `avar` segment maps are renormalized onto the new extents |
 | G4 | 12 | Named instances that fall outside the new design space are dropped |
 | G5 | 15 | `STAT` is kept; its axis values outside the new limits are |
 | G6 | 10 | `GSUB`/`GPOS` feature variations are resolved: a condition set that |
@@ -2560,7 +2568,7 @@ that a reimplementation knows they exist, not because the corpus checks them.
 | G10 | 24 | Name records that existed only to name axes and instances the |
 | G11 | 1 | `DSIG` is deleted, because it signs bytes that no longer exist |
 | G12 | 4 | At the default overlap mode (`KEEP_AND_SET_FLAGS`), a static |
-| G13 | 44 | Outlines at the requested location match what a renderer produces |
+| G13 | 45 | Outlines at the requested location match what a renderer produces |
 | G14 | 20 | original never removes overlaps. `instantiateVariableFont` accepts |
 | H1 | 21 | output container is the **input's** container, whatever the user names the |
 | H2 | 1 | WOFF output is compressed with zopfli, because the worker sets |

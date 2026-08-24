@@ -1842,6 +1842,118 @@
           }
         ]
       }
+    },
+    {
+      "id": "static.avar2.axes-that-move-each-other-are-honoured",
+      "title": "An avar version 2 font instances at the location its axes actually resolve to",
+      "covers": [
+        "G3",
+        "G13"
+      ],
+      "class": "fonttools",
+      "rationale": "`avar` version 1 warps each axis independently through its own segment map. Version 2 adds an item variation store on top, so an axis's final coordinate can depend on where the *other* axes are -- optical size pulling on weight, a width axis changing what a grade means. Ignoring that store does not produce a refusal or a crash; it produces a font instanced at the wrong location, silently. Measured on this fixture before the store was implemented, the outlines sat **173 font units** from what fontTools draws at the same place, which is a visibly different letter. The tolerance here is zero because every axis is pinned, so the arithmetic is exact and there is nothing to round. Note that *partial* instancing of an avar2 font is refused, by this implementation and by fontTools alike, which raises NotImplementedError for it.",
+      "fixture": "avar2",
+      "input": {
+        "axes": {
+          "opsz": "70",
+          "wght": "600",
+          "wdth": "120",
+          "slnt": "0",
+          "GRAD": "0",
+          "XTSP": "0",
+          "XOPQ": "96",
+          "YOPQ": "79",
+          "XTRA": "463",
+          "BDSZ": "0",
+          "WDSP": "246",
+          "XOUC": "96",
+          "YOUC": "79",
+          "XTUC": "463",
+          "XTUD": "463",
+          "XTUR": "463",
+          "YOPE": "79",
+          "YTUC": "728",
+          "STUI": "92",
+          "STUO": "92",
+          "XOLC": "96",
+          "YOLC": "79",
+          "XTLC": "463",
+          "YTAS": "728",
+          "YTDE": "-208",
+          "YTLC": "526",
+          "STLI": "32",
+          "STLO": "32",
+          "YOLB": "132",
+          "XOFI": "96",
+          "YOFI": "79",
+          "XTFI": "463",
+          "YTFI": "743",
+          "BARS": "1000",
+          "VANG": "0",
+          "VROT": "0",
+          "YTTL": "25",
+          "XTTW": "5",
+          "YTOS": "30"
+        }
+      },
+      "expect": {
+        "outcome": "success",
+        "checks": [
+          {
+            "kind": "no_table",
+            "table": "fvar"
+          },
+          {
+            "kind": "no_table",
+            "table": "avar"
+          },
+          {
+            "kind": "outlines_match_source_at",
+            "location": {
+              "opsz": 70.0,
+              "wght": 600.0,
+              "wdth": 120.0,
+              "slnt": 0.0,
+              "GRAD": 0.0,
+              "XTSP": 0.0,
+              "XOPQ": 96.0,
+              "YOPQ": 79.0,
+              "XTRA": 463.0,
+              "BDSZ": 0.0,
+              "WDSP": 246.0,
+              "XOUC": 96.0,
+              "YOUC": 79.0,
+              "XTUC": 463.0,
+              "XTUD": 463.0,
+              "XTUR": 463.0,
+              "YOPE": 79.0,
+              "YTUC": 728.0,
+              "STUI": 92.0,
+              "STUO": 92.0,
+              "XOLC": 96.0,
+              "YOLC": 79.0,
+              "XTLC": 463.0,
+              "YTAS": 728.0,
+              "YTDE": -208.0,
+              "YTLC": 526.0,
+              "STLI": 32.0,
+              "STLO": 32.0,
+              "YOLB": 132.0,
+              "XOFI": 96.0,
+              "YOFI": 79.0,
+              "XTFI": 463.0,
+              "YTFI": 743.0,
+              "BARS": 1000.0,
+              "VANG": 0.0,
+              "VROT": 0.0,
+              "YTTL": 25.0,
+              "XTTW": 5.0,
+              "YTOS": 30.0
+            },
+            "tolerance": 0.0
+          }
+        ]
+      }
     }
   ]
 }

@@ -319,7 +319,11 @@ has them.
   brotli-compressed as they stand rather than re-encoded into the transform's streams.
   (On a small variable subset, where `gvar` and the layout tables dominate, it is
   actually a shade smaller.) See `crates/slice-core/src/font/woff2.rs` for the numbers.
-- **`avar` version 2.** Refused for partial instancing.
+- **`avar` version 2, for *partial* instancing.** Version 2 lets axes move each other
+  through an item variation store, and narrowing an axis would mean rewriting it. Refused,
+  as it is by fontTools, which raises `NotImplementedError` for the same job. Pinning every
+  axis works and is exact: the store is evaluated at the requested location, which is what
+  makes the difference between an instance that is right and one that is 173 units out.
 - **Pruning emptied features and unreferenced lookups.** fontTools removes a feature
   whose lookups it has just emptied, and then the lookups nothing references. This keeps
   them: an empty feature runs nothing and an unreachable lookup is never reached, so the

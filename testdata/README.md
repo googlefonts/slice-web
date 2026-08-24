@@ -25,3 +25,15 @@ wght  300.0 : 1000.0 [300.0]
 slnt  -15.0 : 0.0  [0.0]
 CRSV  0.0 : 1.0    [0.5]
 ```
+
+## RobotoDelta-avar2.subset.ttf
+
+An `avar` version 2 font: 39 axes whose final normalized coordinates depend on each other
+through an item variation store. Four glyphs, subset from Roboto Delta, taken from
+skeravar's test data and used under the OFL — see `thirdparty/README.md`.
+
+It is the only such font available here. Google Fonts ships none of them, and fontTools
+can read the table but not construct one, so this cannot be generated the way the fixtures
+under `tests/suite/fixtures/` are. It backs
+`static.avar2.axes-that-move-each-other-are-honoured`, which fails by 173 font units if the
+version 2 store is ignored.

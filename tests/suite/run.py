@@ -41,7 +41,10 @@ VENV = REPO / ".suite-venv"
 REQUIREMENTS = ["PyQt5==5.15.11", "fonttools[woff]==4.62.1", "brotli"]
 
 FIXTURE_DIRS = [SUITE / "fixtures" / "out", REPO / "testdata" / "fonts"]
-FIXTURE_ALIASES = {"recursive-vf": ["Recursive-VF.subset.ttf"]}
+FIXTURE_ALIASES = {
+    "recursive-vf": ["Recursive-VF.subset.ttf"],
+    "avar2": ["RobotoDelta-avar2.subset.ttf"],
+}
 EXTENSIONS = [".ttf", ".otf", ".woff", ".woff2"]
 
 

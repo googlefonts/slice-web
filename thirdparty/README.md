@@ -36,6 +36,16 @@ version's wordmark matches the application it replaces. At 2.8 kB it costs nothi
 `testdata/fonts/` holds the test fixtures copied from the original repository; see
 [testdata/README.md](../testdata/README.md).
 
+## Roboto Delta
+
+`testdata/fonts/RobotoDelta-avar2.subset.ttf` is a four-glyph subset of
+[Roboto Delta](https://github.com/googlefonts/roboto-delta) by the Roboto Delta Project
+Authors, used under the SIL Open Font License 1.1. It is here because it is an `avar`
+version 2 font — 39 axes that move each other — and there is no other one to hand: Google
+Fonts ships none, and fontTools 4.62.1 can read that table but not build one, so it cannot
+be generated the way the other fixtures are. The copy came from
+[skeravar](https://github.com/simoncozens/skeravar)'s test data.
+
 ## The original Slice
 
 This project reimplements the interface and behaviour of
