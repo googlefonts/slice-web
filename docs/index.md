@@ -38,7 +38,7 @@ no server and nothing to upload. Load the page, go offline, and it still works.
   </li>
   <li>
     <h3><a href="evidence/">Evidence</a></h3>
-    <p>What is tested and how it was measured: 298 conformance cases in plain English,
+    <p>What is tested and how it was measured: 301 conformance cases in plain English,
        775 real fonts swept, and every defect adjudicated with the measurement behind
        it.</p>
   </li>

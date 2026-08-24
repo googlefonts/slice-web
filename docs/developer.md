@@ -57,11 +57,11 @@ partial, CFF2, and the sub-space `solver`), `overlaps.rs` (the boolean union) an
 ## Running the tests
 
 ```sh
-cargo test --workspace              # 174 tests
+cargo test --workspace              # 192 tests
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 
-tests/suite/run.py                  # 298 conformance cases, both implementations
+tests/suite/run.py                  # 301 conformance cases, both implementations
 tests/suite/run.py --runner ours    # just this one
 tests/suite/run.py --case axis.     # filter by id prefix
 tests/suite/run.py --verbose        # per-check detail on failures
@@ -70,11 +70,16 @@ tools/browser-smoke.sh              # that it starts in a real browser and reads
 tools/browser-slice-test.py         # that pressing Slice produces the right font
 tools/compare-with-fonttools.py     # that the result matches fontTools
 tools/compare-cff2-with-fonttools.py
+
+tools/commit-stamp-check.sh         # that the build stamp in the status bar follows HEAD
 ```
 
-CI runs all of these on every push. Two things it deliberately does **not** run: the
-manual build, which would mean carrying a TeX installation on the build machine, and the
-775-font corpus sweep, which needs a checkout of `google/fonts`.
+CI runs all of these on every push. Three things it deliberately does **not** run: the
+manual build, which would mean carrying a TeX installation on the build machine; the
+775-font corpus sweep, which needs a checkout of `google/fonts`; and the build-stamp
+probe, which clones the repository and builds it three times to answer a question about
+cargo's caching, and is worth running when `crates/slice-web/build.rs` changes rather
+than on every push.
 
 ## How correctness is established
 
@@ -128,7 +133,9 @@ page together. `docs/test-suite.md` is generated too, by `tests/suite/gen-docs.p
 File it on the [issue tracker](https://github.com/felipesanches/slice-web/issues). A font
 that reproduces the problem is worth more than anything else you can include; if you
 cannot share it, the output of `slice info yourfont.ttf --json` describes the design space
-without shipping the outlines.
+without shipping the outlines. From the web version, quote the commit hash in the status
+bar: it is a link to the exact commit the page was built from, and it identifies what you
+were running in a way the version number cannot, since every push is republished.
 
 Problems with the *original* Slice belong on
 [its own tracker](https://github.com/source-foundry/Slice/issues) — though if the

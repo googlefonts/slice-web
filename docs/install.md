@@ -66,7 +66,7 @@ On Windows use PowerShell and `cargo build --release -p slice-cli`; the binary i
 ## Verifying a build
 
 ```sh
-cargo test --workspace       # 174 tests
+cargo test --workspace       # 192 tests
 tests/suite/run.py           # the 298-case conformance corpus, both implementations
 ```
 

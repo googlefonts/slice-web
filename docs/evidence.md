@@ -15,7 +15,7 @@ reproduces it.
 <ul class="cards" markdown="0">
   <li>
     <h3><a href="../test-suite.html">The test suite in plain English</a></h3>
-    <p>All 298 conformance cases, each with the reasoning for why that is the right
+    <p>All 301 conformance cases, each with the reasoning for why that is the right
        answer. Generated from the cases themselves, so it cannot drift from them.</p>
   </li>
   <li>

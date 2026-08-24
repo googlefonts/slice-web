@@ -39,7 +39,7 @@ The four evidence documents, also readable in the repository:
 
 | | |
 |---|---|
-| [Test suite in plain English](docs/test-suite.md) | All 298 conformance cases and the reasoning behind each |
+| [Test suite in plain English](docs/test-suite.md) | All 301 conformance cases and the reasoning behind each |
 | [Adjudication](docs/adjudication.md) | Every case the original Slice fails, and the measurement behind each verdict |
 | [Real-world sweep](docs/real-world-sweep.md) | What happens on 775 real variable fonts from Google Fonts |
 | [Behaviour map](docs/original-behaviour.md) | The numbered map of the original that the suite is written against |
