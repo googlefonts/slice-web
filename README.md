@@ -259,6 +259,13 @@ the default and wrong everywhere else.
 `GSUB`/`GPOS` *feature variations* — the conditional substitutions `rvrn` uses — are
 resolved separately.
 
+`MVAR` is re-tented the same way, so the font-wide metrics — ascender, descender, x-height,
+cap height, underline — still move across whatever range is left. This too used to be
+"apply at the new default and drop", which left them right at that one location and frozen
+elsewhere: narrowed to wght 300:700, a font kept its 300 x-height at 700. Checked against
+fontTools on Recursive: x-height 526 / 534 / 538 and underline −205 / −188 / −179 across
+the three sampled weights, identical on both sides.
+
 ## Where it deliberately differs from the original
 
 Everything the original does, this does, and the results are diffed against fontTools to
@@ -312,8 +319,6 @@ has them.
   brotli-compressed as they stand rather than re-encoded into the transform's streams.
   (On a small variable subset, where `gvar` and the layout tables dominate, it is
   actually a shade smaller.) See `crates/slice-core/src/font/woff2.rs` for the numbers.
-- **`MVAR` across a restricted range.** Applied at the new default and then dropped, so
-  vertical metrics are right there but stop varying across whatever range is left.
 - **`avar` version 2.** Refused for partial instancing.
 - **Pruning emptied features and unreferenced lookups.** fontTools removes a feature
   whose lookups it has just emptied, and then the lookups nothing references. This keeps

@@ -2668,6 +2668,45 @@
           }
         ]
       }
+    },
+    {
+      "id": "partial.vertical-metrics-still-vary-across-a-restricted-range",
+      "title": "Ascender, x-height and the underline still move across a narrowed axis",
+      "covers": [
+        "G2",
+        "G13"
+      ],
+      "class": "fonttools",
+      "rationale": "`MVAR` is what makes the font-wide metrics -- ascender, descender, x-height, cap height, underline -- move with weight or optical size. Narrowing an axis has to re-tent its item variation store, exactly as `HVAR` and `GDEF` do, and bake the residual at the new default into the `OS/2` and `post` fields each record names. This implementation used to apply the table at the new default and then drop it, which left every metric correct at that one location and frozen everywhere else: a font narrowed to wght 300:700 kept its 300 x-height at 700. fontTools keeps the table, so the original passes. Measured on this fixture, x-height runs 526 / 534 / 538 across the three sampled weights and the underline -205 / -188 / -179; an implementation that dropped MVAR would report the first column three times, which is why the samples are not all at the default.",
+      "fixture": "recursive-vf",
+      "input": {
+        "axes": {
+          "wght": "300:700"
+        }
+      },
+      "expect": {
+        "outcome": "success",
+        "checks": [
+          {
+            "kind": "has_table",
+            "table": "MVAR"
+          },
+          {
+            "kind": "metrics_match_source_across",
+            "locations": [
+              {
+                "wght": 300
+              },
+              {
+                "wght": 500
+              },
+              {
+                "wght": 700
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }

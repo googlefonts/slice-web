@@ -873,6 +873,55 @@ class Checker:
                         )
         return pairs
 
+    def _metrics_at(self, font: ttLib.TTFont, location: dict) -> dict:
+        """The font-wide vertical metrics as they would be at `location`."""
+        from fontTools.varLib.instancer import instantiateVariableFont
+
+        wanted = self._location_for(font, location)
+        if wanted and "fvar" in font:
+            instantiateVariableFont(font, wanted, inplace=True)
+            buffer = io.BytesIO()
+            font.save(buffer)
+            buffer.seek(0)
+            font = ttLib.TTFont(buffer)
+
+        out = {}
+        if "OS/2" in font:
+            os2 = font["OS/2"]
+            for field in ("sTypoAscender", "sTypoDescender", "sTypoLineGap",
+                          "sxHeight", "sCapHeight"):
+                if hasattr(os2, field):
+                    out[field] = getattr(os2, field)
+        if "post" in font:
+            out["underlinePosition"] = font["post"].underlinePosition
+            out["underlineThickness"] = font["post"].underlineThickness
+        return out
+
+    def metrics_match_source_across(self, spec):
+        """The font-wide metrics must still vary over a narrowed axis.
+
+        `MVAR` is what makes ascender, x-height, cap height and the underline move with
+        weight or optical size. An implementation that applies it at the new default and
+        then drops the table leaves metrics that are right at that one location and frozen
+        everywhere else -- a font narrowed to wght 300:700 keeping its 300 x-height at 700.
+        Only an interior or far-end sample can see that.
+        """
+        tolerance = float(spec.get("tolerance", 0))
+        checked = 0
+        for location in spec["locations"]:
+            want = self._metrics_at(ttLib.TTFont(self.source_path), location)
+            got = self._metrics_at(ttLib.TTFont(self.output_path), location)
+            for field, value in want.items():
+                if field not in got:
+                    return False, f"at {location}: {field} is missing from the output"
+                if abs(value - got[field]) > tolerance:
+                    return False, (
+                        f"at {location}: {field} is {value} in the source, "
+                        f"{got[field]} here"
+                    )
+                checked += 1
+        return True, f"{checked} metric readings agree"
+
     def kerning_matches_source_across(self, spec):
         """Variable kerning must still interpolate over a narrowed axis.
 

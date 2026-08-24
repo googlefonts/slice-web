@@ -644,24 +644,26 @@ fn finish_partial<'a>(
         }
     }
 
-    // MVAR is applied at the new default and then dropped; see the module docs.
-    let location = super::normalize::NormalizedLocation {
-        coords: plans
-            .iter()
-            .map(|plan| {
-                if plan.is_pinned() {
-                    plan.normalized.default
-                } else {
-                    0.0
-                }
-            })
-            .collect(),
-        tags: plans
-            .iter()
-            .map(|plan| Tag::new_checked(plan.spec.tag.as_bytes()).unwrap_or(Tag::new(b"    ")))
-            .collect(),
-    };
-    let adjustments = super::mvar::metric_adjustments(font, &location);
+    // MVAR is re-tented onto the surviving axes rather than applied and dropped. Dropping
+    // it left the vertical metrics right at the new default and frozen everywhere else --
+    // a font narrowed to wght 300:700 kept its 300 x-height at 700.
+    //
+    // The residual it leaves behind is the constant part at the new default, which goes
+    // into the metric each record names. That is only non-zero when some other axis was
+    // pinned away from its default, exactly as for GDEF.
+    let mvar = super::mvar::rebuild(font, plans)?;
+    let adjustments = mvar
+        .as_ref()
+        .map(|(_, residual)| residual.clone())
+        .unwrap_or_default();
+
+    if let Some((table, _)) = &mvar {
+        if !table.value_records.is_empty() {
+            out.add_table(table)
+                .map_err(|e| SliceError::Write(e.to_string()))?;
+        }
+    }
+
     if let Ok(os2) = font.os2() {
         let mut os2: write_fonts::tables::os2::Os2 = os2.to_owned_table();
         super::mvar::apply_to_os2(&mut os2, &adjustments);

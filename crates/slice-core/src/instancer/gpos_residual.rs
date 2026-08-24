@@ -317,9 +317,8 @@ mod tests {
         // variable in that respect.
         let deltas = vec![vec![99.0]];
         let mut record = ValueRecord::new().with_x_advance(7);
-        record.x_advance_device = NullableOffsetMarker::new(Some(
-            DeviceOrVariationIndex::device(11, 12, &[1, 2]),
-        ));
+        record.x_advance_device =
+            NullableOffsetMarker::new(Some(DeviceOrVariationIndex::device(11, 12, &[1, 2])));
 
         value_of(&mut record, &Residual::new(&deltas, false));
         assert_eq!(record.x_advance, Some(7));
@@ -355,6 +354,6 @@ mod tests {
         let deltas = vec![vec![0.0, 0.0], vec![0.0]];
         assert!(Residual::new(&deltas, false).is_noop());
         assert!(!Residual::new(&deltas, true).is_noop());
-        assert!(!Residual::new(&vec![vec![3.0]], false).is_noop());
+        assert!(!Residual::new(&[vec![3.0]], false).is_noop());
     }
 }

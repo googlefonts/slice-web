@@ -37,11 +37,11 @@ Every case is labelled with where its authority comes from:
 | label | meaning | cases |
 |---|---|---|
 | `spec` | the OpenType specification requires it | 86 |
-| `fonttools` | inherited from fontTools, which the original delegates to | 104 |
+| `fonttools` | inherited from fontTools, which the original delegates to | 106 |
 | `slice-ui` | the application's own contract | 74 |
 | `judgement` | a defensible design choice with no external authority | 34 |
 
-There are **298 cases** in total, across 6 areas.
+There are **300 cases** in total, across 6 areas.
 17 of them require removing overlaps, which the original never
 had; it is expected to fail those, and that is not counted against it.
 
@@ -51,7 +51,7 @@ had; it is expected to fail those, and that is not counted against it.
 - [bitflags](#bitflags) — 37 cases
 - [names](#names) — 45 cases
 - [outlines-containers](#outlines-containers) — 57 cases
-- [partial-instancing](#partial-instancing) — 57 cases
+- [partial-instancing](#partial-instancing) — 59 cases
 - [static-instancing](#static-instancing) — 50 cases
 
 ## axis-syntax
@@ -1932,6 +1932,14 @@ Everything else in this file checks one field at a time; this case checks that t
 
 <sub>covers G2, G8, G13 · authority: `spec` · fixture: `recursive-vf`</sub>
 
+### `partial.pinned-off-default-keeps-variable-kerning`
+
+**Kerning stays right when one axis is pinned off its default and another is narrowed**
+
+A `GDEF` item variation store re-tents cleanly as long as every other axis stays at its default, because deltas are measured from the default master and the residual at the new default location is then zero. Pinning an axis *away* from its default breaks that: the kerning at `wdth=50` differs from the kerning at `wdth=100` by exactly that residual, and it has to be written back into the GPOS value records and anchors that address the store. This case existed first as a recorded gap -- the implementation refused the job while fontTools did it -- and the interior sample is what holds the fix honest: a store re-tented without its residual is still exactly right at the default and wrong everywhere else, which no single-location check would notice.
+
+<sub>covers G2, G13 · authority: `fonttools` · fixture: `gdef-varstore`</sub>
+
 ### `partial.range-above-default-refused`
 
 **A restricted range entirely above the axis default is refused**
@@ -2067,6 +2075,14 @@ Recursive is a real font with avar, feature variations and a five-axis space; wh
 A font's variable kerning lives in a `GDEF` item variation store that `GPOS` reaches into by delta-set index. Narrowing an axis without re-tenting that store leaves the regions describing a design space the font no longer has, and the failure is quiet: the kerning is still exactly right at the default location and wrong everywhere else, so text set at any other weight mis-spaces while every outline is perfect. No outline check can see it, and no check that samples a single location can either -- which is why the sampled locations here include an interior one. Measured against fontTools 4.62.1 on this fixture at wght 400, 550 and 700, the pair values are -40/-64/-88 for A/V and -60/-87/-114 for T/A; an implementation that dropped the store would report the 400 column at all three.
 
 <sub>covers G2, G13 · authority: `fonttools` · fixture: `gdef-varstore`</sub>
+
+### `partial.vertical-metrics-still-vary-across-a-restricted-range`
+
+**Ascender, x-height and the underline still move across a narrowed axis**
+
+`MVAR` is what makes the font-wide metrics -- ascender, descender, x-height, cap height, underline -- move with weight or optical size. Narrowing an axis has to re-tent its item variation store, exactly as `HVAR` and `GDEF` do, and bake the residual at the new default into the `OS/2` and `post` fields each record names. This implementation used to apply the table at the new default and then drop it, which left every metric correct at that one location and frozen everywhere else: a font narrowed to wght 300:700 kept its 300 x-height at 700. fontTools keeps the table, so the original passes. Measured on this fixture, x-height runs 526 / 534 / 538 across the three sampled weights and the underline -205 / -188 / -179; an implementation that dropped MVAR would report the first column three times, which is why the samples are not all at the default.
+
+<sub>covers G2, G13 · authority: `fonttools` · fixture: `recursive-vf`</sub>
 
 ## static-instancing
 
@@ -2533,7 +2549,7 @@ that a reimplementation knows they exist, not because the corpus checks them.
 | F2 | 3 | Axis entries are validated before the save dialog opens; a parse |
 | F3 | 3 | The job is refused if it does not narrow the design space (B13) |
 | G1 | 26 | Pinning every axis yields a static font: no `fvar`, no `gvar`, no |
-| G2 | 41 | Pinning some axes and restricting others yields a variable font |
+| G2 | 43 | Pinning some axes and restricting others yields a variable font |
 | G3 | 10 | `avar` segment maps are renormalized onto the new extents |
 | G4 | 12 | Named instances that fall outside the new design space are dropped |
 | G5 | 15 | `STAT` is kept; its axis values outside the new limits are |
@@ -2544,7 +2560,7 @@ that a reimplementation knows they exist, not because the corpus checks them.
 | G10 | 24 | Name records that existed only to name axes and instances the |
 | G11 | 1 | `DSIG` is deleted, because it signs bytes that no longer exist |
 | G12 | 4 | At the default overlap mode (`KEEP_AND_SET_FLAGS`), a static |
-| G13 | 42 | Outlines at the requested location match what a renderer produces |
+| G13 | 44 | Outlines at the requested location match what a renderer produces |
 | G14 | 20 | original never removes overlaps. `instantiateVariableFont` accepts |
 | H1 | 21 | output container is the **input's** container, whatever the user names the |
 | H2 | 1 | WOFF output is compressed with zopfli, because the worker sets |

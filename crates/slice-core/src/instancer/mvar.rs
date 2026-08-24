@@ -164,6 +164,78 @@ pub fn apply_to_post(post: &mut Post, adjustments: &HashMap<Tag, f64>) {
     adjust_fword(&mut post.underline_thickness, adjustments.get(&tags::UNDS));
 }
 
+/// A re-tented `MVAR` and the residual it leaves, keyed by the metric tag each
+/// record names.
+pub type Rebuilt = (write_fonts::tables::mvar::Mvar, HashMap<Tag, f64>);
+
+/// Re-tent `MVAR` onto the surviving axes, and report the residual per metric tag.
+///
+/// `MVAR` is an item variation store like any other, addressed by `(outer, inner)` from a
+/// flat list of records keyed by metric tag. Re-tenting it is the same operation `HVAR`
+/// and `GDEF` need; what differs is where the residual goes, and here it is easy — each
+/// record names exactly one metric, so the constant is added to that field in `OS/2`,
+/// `hhea` or `post`.
+///
+/// This used to be "apply at the new default, then drop", which left the vertical metrics
+/// correct at the default and frozen across whatever range remained. A font narrowed to
+/// wght 300:700 kept its 300 x-height at 700.
+pub fn rebuild(
+    font: &FontRef,
+    plans: &[crate::instancer::partial::AxisPlan],
+) -> Result<Option<Rebuilt>, crate::SliceError> {
+    let Ok(mvar) = font.mvar() else {
+        return Ok(None);
+    };
+    let Some(Ok(store)) = mvar.item_variation_store() else {
+        return Ok(None);
+    };
+
+    let rebuilt = crate::instancer::varstore::rebuild(&store, plans)?;
+
+    let mut residual: HashMap<Tag, f64> = HashMap::new();
+    for record in mvar.value_records() {
+        let outer = usize::from(record.delta_set_outer_index());
+        let inner = usize::from(record.delta_set_inner_index());
+        let delta = rebuilt
+            .default_deltas
+            .get(outer)
+            .and_then(|row| row.get(inner))
+            .copied()
+            .unwrap_or(0.0);
+        if delta != 0.0 {
+            residual.insert(record.value_tag(), delta);
+        }
+    }
+
+    // With nothing left varying there is no store to point at, so the records go too and
+    // the table with them; the residual has already been collected and will be baked.
+    let Some(store) = rebuilt.store else {
+        return Ok(Some((write_fonts::tables::mvar::Mvar::default(), residual)));
+    };
+
+    // Built by hand: read-fonts' MVAR has no `to_owned_table`, and the records are a flat
+    // list of (tag, outer, inner) that `varstore::rebuild` leaves addressed exactly as
+    // they were, so they are copied across unchanged.
+    let records: Vec<write_fonts::tables::mvar::ValueRecord> = mvar
+        .value_records()
+        .iter()
+        .map(|record| write_fonts::tables::mvar::ValueRecord {
+            value_tag: record.value_tag(),
+            delta_set_outer_index: record.delta_set_outer_index(),
+            delta_set_inner_index: record.delta_set_inner_index(),
+        })
+        .collect();
+
+    let owned = write_fonts::tables::mvar::Mvar {
+        version: write_fonts::types::MajorMinor::VERSION_1_0,
+        value_record_size: 8,
+        value_record_count: records.len() as u16,
+        item_variation_store: Some(store).into(),
+        value_records: records,
+    };
+    Ok(Some((owned, residual)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
