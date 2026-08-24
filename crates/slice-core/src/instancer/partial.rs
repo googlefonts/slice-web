@@ -538,11 +538,18 @@ fn partial_cff2(font: &FontRef, plans: &[AxisPlan]) -> Result<Vec<u8>, SliceErro
 /// value records and anchors scattered across the layout tables, and rewriting those
 /// means walking every lookup.
 ///
-/// It does not arise in practice, because deltas are measured *from* the default master
-/// and Level 3 sub-spacing cannot move the default -- a restricted range has to contain
-/// it. So the residual is zero, and the assertion below says so out loud rather than
-/// trusting it. If a font ever does produce one, refusing is right: the alternative is
-/// kerning that is silently wrong everywhere except the default.
+/// It is zero when every *other* axis stays at its default, because deltas are measured
+/// from the default master and Level 3 sub-spacing cannot move the default of the axis
+/// being restricted. An earlier version of this comment claimed that made it impossible,
+/// which was wrong: **pinning another axis away from its default produces one**. Pin
+/// `CASL=1` while restricting `wght` and the kerning at CASL=1 differs from the kerning
+/// at CASL=0 by exactly this residual, and that difference has to go somewhere.
+///
+/// So the check below is not a formality. fontTools handles the case by rewriting the
+/// GPOS values; this refuses, which is safe but is a real limitation -- 189 of the 767
+/// variable fonts in Google Fonts have both a GDEF store and more than one axis, so it is
+/// reachable on a quarter of them. The alternative to refusing would be kerning silently
+/// wrong everywhere except one location, which is worse than an error message.
 fn rebuilt_gdef(
     font: &FontRef,
     plans: &[AxisPlan],
@@ -569,11 +576,30 @@ fn rebuilt_gdef(
                     .map(|j| (i, j))
             })
     {
+        let pinned_off_default: Vec<&str> = plans
+            .iter()
+            .filter(|plan| plan.is_pinned() && plan.normalized.default != 0.0)
+            .map(|plan| plan.spec.tag.as_str())
+            .collect();
+        let because = if pinned_off_default.is_empty() {
+            String::new()
+        } else {
+            format!(
+                " This is because {} pinned away from its default, which moves the \
+                 kerning that the surviving axes are measured from.",
+                if pinned_off_default.len() == 1 {
+                    format!("{} is", pinned_off_default[0])
+                } else {
+                    format!("{} are", pinned_off_default.join(", "))
+                }
+            )
+        };
         return Err(SliceError::Unsupported(format!(
             "Restricting an axis on this font would change its variable kerning at the \
-             default location (GDEF item variation store, subtable {subtable}, delta set \
-             {row}). Rewriting the positioning values to compensate is not implemented. \
-             Pin every axis instead, which produces a static instance."
+             new default location (GDEF item variation store, subtable {subtable}, delta \
+             set {row}), and rewriting the positioning values to compensate is not \
+             implemented.{because} Either leave those axes at their defaults, or pin every \
+             axis, which produces a static instance."
         )));
     }
 

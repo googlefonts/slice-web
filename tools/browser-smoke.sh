@@ -103,10 +103,20 @@ absent() {
   echo "  ok   $description"
 }
 
+# The sample the application actually ships, read out of the source rather than repeated
+# here: this file said `Recursive-VF.subset.ttf` for a while after the sample changed, and
+# a test that hardcodes what it is checking will do that again.
+sample=$(sed -n 's/^pub const SAMPLE_NAME: &str = "\(.*\)";$/\1/p' \
+  crates/slice-web/src/files.rs)
+if [[ -z "$sample" ]]; then
+  echo "could not read SAMPLE_NAME from crates/slice-web/src/files.rs" >&2
+  exit 1
+fi
+
 # The sample font was read, and every editor was filled from it.
-check "the font was opened"                'Recursive-VF.subset.ttf'
+check "the font was opened"                "$sample"
 check "the status bar reports the font"    'loaded (5 axes)'
-check "glyph count is shown"               '3 glyphs'
+check "glyph count is shown"               '1304 glyphs'
 
 # The Axis Editor read fvar, in order, with the right extents.
 for axis in MONO CASL wght slnt CRSV; do
@@ -125,7 +135,7 @@ check "fsSelection was read from the font" '0000000011000000'
 
 # The controls that only this version has.
 check "overlap removal is offered"         'Remove overlapping contours'
-check "the output name is suggested"       'Recursive-VF.subset.ttf'
+check "the output name is suggested"       "${sample%.*}"
 
 echo
 echo "browser smoke test passed"

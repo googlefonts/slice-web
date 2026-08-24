@@ -15,8 +15,12 @@ Scoring separates three outcomes for the original, because they mean different t
     passed                  agrees with the corpus
     failed                  disagrees — either a defect in it, or a defect in the test,
                             and section 4 of the plan adjudicates which
-    lacks feature           the case needs something the original never claimed to do,
-                            such as removing overlaps. Not a mark against it.
+    lacks feature           the case needs something that implementation does not have:
+                            `original_lacks_feature` for overlap removal, which the
+                            original never claimed to do, and `ours_lacks_feature` for a
+                            job fontTools does and this build does not yet. Reported
+                            separately so a known gap is visible rather than either
+                            hidden or mistaken for a regression.
 """
 
 from __future__ import annotations
@@ -145,7 +149,14 @@ def score(cases: list[dict], runner: str, verbose: bool) -> dict:
         }
 
         for case in cases:
-            lacks = runner == "original" and case.get("original_lacks_feature")
+            # A case can record that one implementation does not have the feature it
+            # needs. `original_lacks_feature` is the common direction -- overlap removal,
+            # which the original never had. `ours_lacks_feature` is the mirror, and it
+            # exists so that a gap where fontTools is ahead is reported in the open rather
+            # than smuggled in as a case that demands the refusal we happen to produce.
+            lacks = (runner == "original" and case.get("original_lacks_feature")) or (
+                runner == "ours" and case.get("ours_lacks_feature")
+            )
             outcome = outcomes[case["id"]]
             fixture = resolve_fixture(case["fixture"])
             if fixture is None:

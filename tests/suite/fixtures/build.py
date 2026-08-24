@@ -1191,10 +1191,23 @@ def build_gdef_varstore():
     ``Device`` table of format ``VariationIndex`` pointing into the item
     variation store it puts in ``GDEF``.
     """
-    axes = [axis("wght", "Weight", 400, 400, 900)]
+    axes = [
+        axis("wght", "Weight", 400, 400, 900),
+        # A second axis, so the fixture can express the case where one axis is pinned
+        # away from its default while another is narrowed. That is the one partial job a
+        # GDEF store makes impossible without rewriting the GPOS values, and with a single
+        # axis there is no way to ask for it.
+        axis("wdth", "Width", 50, 100, 100),
+    ]
     sources = [
-        source(kern_master(90, -40, -20, -60), {"Weight": 400}, "default", True),
-        source(kern_master(200, -120, -70, -150), {"Weight": 900}, "black", False),
+        source(kern_master(90, -40, -20, -60), {"Weight": 400, "Width": 100},
+               "default", True),
+        source(kern_master(200, -120, -70, -150), {"Weight": 900, "Width": 100},
+               "black", False),
+        # Condensed kerns tighter, so the store has a wdth region with its own deltas and
+        # pinning wdth off its default genuinely moves the kerning.
+        source(kern_master(90, -70, -45, -95), {"Weight": 400, "Width": 50},
+               "condensed", False),
     ]
     vf = make_vf(axes, sources)
     gdef = vf["GDEF"].table
@@ -1202,6 +1215,12 @@ def build_gdef_varstore():
         raise AssertionError("gdef-varstore: GDEF has no item variation store")
     if not _gpos_has_variation_index(vf):
         raise AssertionError("gdef-varstore: no GPOS value record references the store")
+    if len(vf["fvar"].axes) != 2:
+        raise AssertionError("gdef-varstore: expected two axes")
+    # The wdth axis has to actually reach the store, or the case it exists for is vacuous.
+    regions = gdef.VarStore.VarRegionList.Region
+    if not any(r.VarRegionAxis[1].PeakCoord != 0 for r in regions):
+        raise AssertionError("gdef-varstore: no variation region touches wdth")
     return vf
 
 

@@ -36,6 +36,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import shutil
 import socket
 import struct
@@ -231,6 +232,15 @@ READ_CAPTURED = """
   return btoa(binary);
 })()
 """
+
+
+def sample_font() -> Path:
+    """The sample the application ships, located from `files.rs` rather than guessed."""
+    source = (REPO_ROOT / "crates" / "slice-web" / "src" / "files.rs").read_text()
+    match = re.search(r'SAMPLE_NAME: &str = "(.*)";', source)
+    if not match:
+        raise SystemExit("could not read SAMPLE_NAME from crates/slice-web/src/files.rs")
+    return REPO_ROOT / "web" / "fonts" / match.group(1)
 
 
 def find_browser() -> str | None:
@@ -480,10 +490,22 @@ def main() -> int:
         print(report.stdout.rstrip())
         print("--- end ---\n")
 
+        # Read the count out of the sample rather than repeating it here. A slice keeps
+        # every glyph, so the property to assert is "the same as the input had" -- and a
+        # literal would have to be chased every time the sample font changes, which is
+        # exactly what happened when it did.
+        source_report = subprocess.run(
+            [str(slice_cli), "info", str(sample_font())], capture_output=True, text=True
+        )
+        source_glyphs = re.search(r"(\d+) glyphs", source_report.stdout)
+        if not source_glyphs:
+            print("could not read the sample's glyph count", file=sys.stderr)
+            return 1
+
         checks = [
             ("the name the interface set is in the font", "Sliced In A Browser"),
             ("every axis was pinned, so no fvar remains", "Not a variable font"),
-            ("the glyph count survived", "3 glyphs"),
+            ("the glyph count survived", f"{source_glyphs.group(1)} glyphs"),
         ]
         for description, needle in checks:
             if needle not in report.stdout:
@@ -506,6 +528,16 @@ def main() -> int:
               return boxes[0].checked;
             })()
             """
+        )
+        # CASL goes back to its default before the axis is narrowed. Round one pinned it
+        # at 1, and pinning an axis *away* from its default while restricting another is
+        # the one partial case this build refuses: the GDEF item variation store's
+        # residual at the new default location would have to be written back into the
+        # GPOS values, which is not implemented. `partial.pinned-off-default-with-a-gdef-
+        # store-is-refused` covers that refusal; this test is about the partial path
+        # working, so it asks for a job that is supported.
+        devtools.evaluate(
+            f"({SET_INPUT})('.axis-editor tbody tr:nth-child(2) input', {json.dumps('0')})"
         )
         devtools.evaluate(
             f"({SET_INPUT})('.axis-editor tbody tr:nth-child(3) input',"

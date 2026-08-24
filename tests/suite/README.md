@@ -72,6 +72,21 @@ exclusive with bits 0 and 5" is a rationale. "Checks that bit 6 is cleared" is n
 Where the case encodes behaviour the original gets **wrong**, say so and say why, so the
 expected failure is not mistaken for a broken test.
 
+### Recording a gap
+
+Two optional booleans say that a case needs something one implementation does not have,
+so the runner reports it separately from a failure:
+
+| field | meaning |
+|---|---|
+| `original_lacks_feature` | the original Slice never had this — overlap removal, and nothing else so far |
+| `ours_lacks_feature` | fontTools does this and this build does not yet |
+
+The second exists so that a gap where the original is *ahead* is stated in the open. The
+alternative is a case written to demand whatever refusal this build happens to produce,
+which turns a limitation into a specification and makes the corpus agree with the code
+instead of judging it.
+
 ### `input`
 
 All fields optional; omitted means "the user left it alone".

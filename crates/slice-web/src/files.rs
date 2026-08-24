@@ -79,8 +79,20 @@ pub const ACCEPTED_EXTENSIONS: &str =
     ".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2";
 
 /// The sample font bundled with the page, for visitors who arrive without one.
-pub const SAMPLE_PATH: &str = "./fonts/Recursive-VF.subset.ttf";
-pub const SAMPLE_NAME: &str = "Recursive-VF.subset.ttf";
+///
+/// The real Recursive, not a subset: 1304 glyphs over five axes, with `avar`, `GDEF`,
+/// `GPOS`, `GSUB` feature variations, `HVAR` and `MVAR`. A three-glyph subset made the
+/// tool look like a toy and exercised almost none of it; someone trying Slice for the
+/// first time should be slicing a font that behaves like the ones they own.
+///
+/// Shipped as WOFF2, which is 719 kB against the sfnt's 2.4 MB and is fetched only when
+/// the link is clicked, so it costs nothing to anyone who arrives with their own font.
+/// It also means every use of the sample exercises the WOFF2 decoder on a real font.
+///
+/// The brackets are percent-encoded in the path but not in the name: the first is a URL,
+/// the second is what the file is called.
+pub const SAMPLE_PATH: &str = "./fonts/Recursive%5BCASL,CRSV,MONO,slnt,wght%5D.woff2";
+pub const SAMPLE_NAME: &str = "Recursive[CASL,CRSV,MONO,slnt,wght].woff2";
 
 /// Fetch a font from the same origin.
 ///
