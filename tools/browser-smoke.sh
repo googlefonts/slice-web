@@ -118,6 +118,22 @@ check "the font was opened"                "$sample"
 check "the status bar reports the font"    'loaded (5 axes)'
 check "glyph count is shown"               '1304 glyphs'
 
+# The build stamp reached the page. Read from git rather than written in here, for the
+# same reason as the sample name above: a hash spelled out in this file would be wrong by
+# the next commit. This also catches a `dist/` built from something other than HEAD, which
+# is a thing worth being told about.
+head_commit=$(git rev-parse HEAD 2>/dev/null || true)
+if [[ -z "$head_commit" ]]; then
+  echo "  --   build stamp: skipped (not a git checkout)"
+elif ! git diff --quiet HEAD -- 2>/dev/null; then
+  # A modified tree is stamped `(modified)` and deliberately not linked, so there is no
+  # link to look for. That case is covered by tools/commit-stamp-check.sh.
+  echo "  --   build stamp: skipped (working tree is modified, so the stamp is not a link)"
+else
+  check "the status bar links to the commit" "commit/$head_commit\""
+  check "the short hash is shown"            ">${head_commit:0:7}</a>"
+fi
+
 # The Axis Editor read fvar, in order, with the right extents.
 for axis in MONO CASL wght slnt CRSV; do
   check "axis $axis is listed"             ">$axis<"
