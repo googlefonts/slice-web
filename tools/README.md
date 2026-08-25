@@ -137,8 +137,17 @@ output, every advance, `maxp`, the `head` bounding box and flags, `hhea`'s extre
 name IDs, the `fvar` axes and instance count, `STAT`'s axes and values, and which lookups
 each `GSUB`/`GPOS` feature runs.
 
-Seven cases, from pinning everything to keeping two axes with one restricted. All seven
+Eight cases, from pinning everything to keeping two axes with one restricted. All eight
 match.
+
+The eighth is the `avar` 2 case, and it runs on a different fixture: Roboto Delta, whose
+39 axes move each other through an item variation store rather than through independent
+segment maps. It has to pin **every** axis, because fontTools refuses to partially
+instance an avar 2 font and so do we — leaving one out turns the request into a partial.
+It is worth its length: reading only the version 1 segment maps and ignoring the store put
+the outlines **173 font units** from fontTools at `opsz=70 wght=600 wdth=120`, a visibly
+different letter, produced with no error and no warning. This case is what measures that,
+and it now reports no difference at all.
 
 `--verbose` prints each field's value rather than only the disagreements, which is how to
 read the numbers back out:

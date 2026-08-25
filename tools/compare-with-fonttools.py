@@ -54,26 +54,51 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VENV = REPO_ROOT / ".fonttools-venv"
 FONTTOOLS_VERSION = "4.62.1"
 FIXTURE = REPO_ROOT / "testdata" / "fonts" / "Recursive-VF.subset.ttf"
+# Roboto Delta, the only avar 2 font available -- Google Fonts ships none, and fontTools
+# 4.62.1 reads that table but cannot build one, so it cannot be generated either.
+AVAR2_FIXTURE = REPO_ROOT / "testdata" / "fonts" / "RobotoDelta-avar2.subset.ttf"
 
 # Tables whose absence or size is expected to differ; see the module docstring.
 ACCEPTED = {
     "GSUB": "fontTools prunes emptied features and unreferenced lookups; we keep them",
     "GPOS": "fontTools prunes emptied features and unreferenced lookups; we keep them",
     "HVAR": "dropped deliberately: gvar's phantom points carry advance variation",
-    "MVAR": "applied at the new default, then dropped",
+    "MVAR": "re-tented onto the surviving axes, so its size differs",
 }
 
-# Each case is (name, axis settings). A value is a number to pin, or a (min, max) pair.
+# Roboto Delta's 39 axes, all at their defaults. An avar 2 font can only be compared with
+# *every* axis pinned: fontTools refuses to partially instance one, and so do we. Listing
+# them is the price of that -- leave one out and the request becomes a partial.
+ROBOTO_DELTA_DEFAULTS = {
+    "opsz": 14, "wght": 400, "wdth": 100, "slnt": 0, "GRAD": 0, "XTSP": 0, "XOPQ": 96,
+    "YOPQ": 79, "XTRA": 463, "BDSZ": 0, "WDSP": 246, "XOUC": 96, "YOUC": 79, "XTUC": 463,
+    "XTUD": 463, "XTUR": 463, "YOPE": 79, "YTUC": 728, "STUI": 92, "STUO": 92, "XOLC": 96,
+    "YOLC": 79, "XTLC": 463, "YTAS": 728, "YTDE": -208, "YTLC": 526, "STLI": 32,
+    "STLO": 32, "YOLB": 132, "XOFI": 96, "YOFI": 79, "XTFI": 463, "YTFI": 743,
+    "BARS": 1000, "VANG": 0, "VROT": 0, "YTTL": 25, "XTTW": 5, "YTOS": 30,
+}
+
+# Each case is (fixture, name, axis settings). A value is a number to pin, or a (min, max)
+# pair.
 CASES = [
-    ("pin every axis", {"MONO": 0, "CASL": 1, "wght": 1000, "slnt": 0, "CRSV": 0.5}),
-    ("pin at the defaults", {"MONO": 0, "CASL": 0, "wght": 300, "slnt": 0, "CRSV": 0.5}),
+    (FIXTURE, "pin every axis", {"MONO": 0, "CASL": 1, "wght": 1000, "slnt": 0, "CRSV": 0.5}),
+    (FIXTURE, "pin at the defaults", {"MONO": 0, "CASL": 0, "wght": 300, "slnt": 0, "CRSV": 0.5}),
     # The case that exposed feature variations never being resolved: at CRSV=1 the
     # 'rvrn' feature substitutes the cursive 'a', and that has to be baked in.
-    ("pin CRSV at 1, where rvrn fires", {"MONO": 0, "CASL": 0, "wght": 300, "slnt": 0, "CRSV": 1}),
-    ("pin the slant axis", {"MONO": 0, "CASL": 0, "wght": 700, "slnt": -15, "CRSV": 0.5}),
-    ("keep wght whole", {"MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
-    ("restrict wght", {"MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5, "wght": (300, 700)}),
-    ("keep wght and CASL", {"MONO": 0, "slnt": 0, "CRSV": 0.5, "wght": (300, 800)}),
+    (FIXTURE, "pin CRSV at 1, where rvrn fires", {"MONO": 0, "CASL": 0, "wght": 300, "slnt": 0, "CRSV": 1}),
+    (FIXTURE, "pin the slant axis", {"MONO": 0, "CASL": 0, "wght": 700, "slnt": -15, "CRSV": 0.5}),
+    (FIXTURE, "keep wght whole", {"MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5}),
+    (FIXTURE, "restrict wght", {"MONO": 0, "CASL": 0, "slnt": 0, "CRSV": 0.5, "wght": (300, 700)}),
+    (FIXTURE, "keep wght and CASL", {"MONO": 0, "slnt": 0, "CRSV": 0.5, "wght": (300, 800)}),
+    # avar 2: the axes move each other through an item variation store, so the normalized
+    # location depends on where the *other* axes are. Reading only the version 1 segment
+    # maps put these outlines 173 font units from fontTools -- a visibly different letter,
+    # produced silently. This is the case that measures it.
+    (
+        AVAR2_FIXTURE,
+        "pin every axis of an avar 2 font",
+        {**ROBOTO_DELTA_DEFAULTS, "opsz": 70, "wght": 600, "wdth": 120},
+    ),
 ]
 
 # (label, expression) evaluated on a fontTools TTFont, run inside the venv.
@@ -225,13 +250,13 @@ def main() -> int:
     workdir = Path(tempfile.mkdtemp(prefix="slice-vs-fonttools-"))
     failures = 0
 
-    for name, limits in CASES:
+    for fixture, name, limits in CASES:
         print(f"=== {name} ===")
         reference = workdir / "reference.ttf"
         ours = workdir / "ours.ttf"
 
         subprocess.run(
-            [str(python), "-c", BUILD, str(FIXTURE), str(reference), json.dumps(limits)],
+            [str(python), "-c", BUILD, str(fixture), str(reference), json.dumps(limits)],
             check=True,
         )
 
@@ -242,7 +267,7 @@ def main() -> int:
             else:
                 axis_args += ["--axis", f"{tag}={value}"]
         subprocess.run(
-            [str(slice_cli), "cut", str(FIXTURE), str(ours), *axis_args],
+            [str(slice_cli), "cut", str(fixture), str(ours), *axis_args],
             check=True, stdout=subprocess.DEVNULL,
         )
 
