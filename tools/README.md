@@ -17,6 +17,7 @@ something that is already in the tree.
 | `kerning-compare.py` | Does a sliced font position glyphs — kerning, mark attachment — the way the variable font does at that location, and the way fontTools' instance does? Shapes every pair of characters with HarfBuzz. |
 | `gdef-store-survey.py` | How many fonts in Google Fonts keep kerning or anchors in a `GDEF` variation store, and how many address it from inside an extension lookup? |
 | `kerning-sample.sh` | Across real fonts, not just the two the bug was found on, do static instances kern the way fontTools' do? Ten fonts fixed by the survey, before and after in one run. |
+| `ci-replay.sh` | Does the Conformance corpus job pass when run the way CI runs it — fontTools-only venv, no PyQt5, a fresh original Slice? Counts how often `run.py` starts. |
 | `live-check.py` | After a push, does the deployed app produce a correct font from a user's own link? Drives the real GitHub Pages site, then runs `overlap-check.py` and `kerning-compare.py --ours` on what it saves. |
 | `overlap-check.py` | After overlap removal, does any glyph still overlap — checked with skia-pathops, not our engine — and did every glyph keep its shape? |
 | `overlap-engine-eval/` | Would `linesweeper` remove overlaps correctly on the shapes `flo_curves` gets wrong, and can it be used from WebAssembly? (a cargo crate; see its own README) |
@@ -425,4 +426,35 @@ Axis Editor with 18 80 900 0 0 0 and the Name Editor with the link's five names,
 overlap removal on, and saved 222,492 bytes. **0 of 682 glyphs** overlap, and **0 of
 110,224 character pairs** are placed differently from fontTools' instance or from the
 variable font itself.
+
+## `ci-replay.sh`
+
+**Does the Conformance corpus job pass when it is run the way CI runs it?**
+
+```sh
+tools/ci-replay.sh              # HEAD, cut off after 600 s
+tools/ci-replay.sh 8d1b9c7 10   # a commit from before the fix, cut off after 10 s
+```
+
+CI starts from nothing: a fresh checkout, a `.suite-venv` the fixture step creates with
+fontTools alone, a Python with no PyQt5, and the original Slice checked out at the commit
+`ci.yml` pins. A workstation has none of that, which is how the job hung at its six-hour
+limit on every CI run from 7948b04 to 8d1b9c7 and still passed here. This rebuilds CI's
+starting point in a throwaway worktree under `$TMPDIR`, runs `run.py` and
+`gen-docs.py --check`, and counts how often `run.py` starts inside the venv through a shim
+in place of the venv's `python`: once is the bootstrap working, more is the loop.
+
+Run on 2026-10-06:
+
+| commit | `run.py` starts in the venv | result |
+|---|---|---|
+| 8d1b9c7 (before the fix), 10 s limit | **141** | cut off; it never got past the bootstrap |
+| e7d44f7 (after) | **1** | exit 0 after 132 s: ours 302/302, the original 235/302 (as on the workstation), `gen-docs.py --check` up to date |
+
+The figures quoted in 4e2c99c (140 starts in ten seconds, 2 min 39 s) came from a first,
+hand-instrumented run of the same replay; the wall time varies with how long pip takes
+to install PyQt5.
+
+GitHub's runners agree: the CI run for e7d44f7, the first since the fix, finished the
+conformance job in 1 min 42 s.
 
