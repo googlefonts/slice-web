@@ -14,6 +14,8 @@ something that is already in the tree.
 | `diffenator3-compare.py` | Does a font sliced here *render* the same as one sliced by fontTools — glyphs and shaped words, pixel by pixel? |
 | `corpus-sweep.py` | Pointed at hundreds of real variable fonts nobody designed a test around, does it crash, does it produce a readable font, and does that font agree with fontTools? |
 | `compare-cff2-with-fonttools.py` | Does instancing a CFF2 font resolve the same blends into the same charstrings fontTools writes? |
+| `kerning-compare.py` | Does a sliced font position glyphs — kerning, mark attachment — the way the variable font does at that location, and the way fontTools' instance does? Shapes every pair of characters with HarfBuzz. |
+| `gdef-store-survey.py` | How many fonts in Google Fonts keep kerning or anchors in a `GDEF` variation store, and how many address it from inside an extension lookup? |
 | `overlap-check.py` | After overlap removal, does any glyph still overlap — checked with skia-pathops, not our engine — and did every glyph keep its shape? |
 | `overlap-engine-eval/` | Would `linesweeper` remove overlaps correctly on the shapes `flo_curves` gets wrong, and can it be used from WebAssembly? (a cargo crate; see its own README) |
 | `woff2-decoder-eval/` | Which pure-Rust WOFF2 decoder reconstructs an sfnt most faithfully, and which ones still build? (a cargo crate, not a script; see its own README) |
@@ -298,3 +300,68 @@ SLICE_PROBE_FONT=plain.ttf cargo test --release -p slice-core --lib \
 
 This is one font. It is the first real one overlap removal has been checked on by an
 engine other than its own; see `docs/evidence.md`.
+
+## `kerning-compare.py`
+
+**Does a font sliced here position its glyphs the way the variable font does at the same
+location, and the way fontTools' instance does?**
+
+No outline check can see positioning. Variable kerning and mark anchors live in a `GDEF`
+item variation store that `GPOS` reaches into, and an instance that mishandles it draws
+every glyph perfectly and sets every line at the wrong width. So this sets text: it
+shapes every ordered pair of characters with HarfBuzz in three fonts — the variable font
+at the location (HarfBuzz evaluates the store itself), fontTools' instance from
+`instantiateVariableFont`, and ours from `slice cut` — and compares every glyph's advance
+and offsets. A pair is as often a base and a combining mark as two letters, so anchors
+are covered along with kerning. A request that leaves axes variable is compared at each
+surviving axis's minimum, middle and maximum.
+
+```sh
+GSF='GoogleSansFlex[GRAD,ROND,opsz,slnt,wdth,wght].ttf'
+AXES='--axis opsz=18 --axis wdth=80 --axis GRAD=0 --axis ROND=0 --axis slnt=0'
+tools/kerning-compare.py "$GSF" $AXES --axis wght=900        # static
+tools/kerning-compare.py "$GSF" $AXES --axis wght=400:900    # partial
+```
+
+It passes when ours and fontTools' instance agree on every pair. Agreeing with the variable
+font is the stronger statement and holds exactly for static instances; a partial one
+re-rounds its re-tented deltas to integers, and both programs land the same 2 or 3 units
+from the variable font at interior locations.
+
+Google Sans Flex 4.005 (the file and sha256 under `overlap-check.py`), 332 characters,
+110,224 pairs, and the real Recursive from `web/fonts/` (converted from WOFF2), 409
+characters, 167,281 pairs — pairs placed differently from fontTools' instance:
+
+| request | at dc17993 |
+|---|---|
+| GSF static, opsz 18 wdth 80 wght 900 | **20,251**, up to 394 units |
+| GSF partial, wdth 80, wght 400:900, at 400 / 650 / 900 | **14,298** at each |
+| Recursive static, CASL 1 wght 700 slnt −15 CRSV 1 | **1,108**, up to 110 units |
+| Recursive partial, CASL 1, wght 300:700, at 300 / 500 / 700 | 0 |
+
+Two bugs. A static instance copies `GDEF` and `GPOS` through untouched, so with no `fvar`
+left the store cannot be evaluated and every value stays at the default master's —
+Recursive's marks sit 110 units off their anchors, and Google Sans Flex's 394. And the
+walk that writes a residual back into `GPOS` skips extension lookups (type 9), believing
+the subtable they wrap is reached on its own; it is held inline, and compilers move the
+biggest lookup — usually the kerning — into one. Google Sans Flex's kerning is in an
+extension and Recursive's is not, which is why the partial check on Recursive passed all
+along and the same job on Google Sans Flex was wrong by a constant 14,298 pairs.
+
+Takes about a minute per location for a font this size.
+
+## `gdef-store-survey.py`
+
+**How many real fonts can a variable-positioning bug reach?**
+
+```sh
+.shaping-venv/bin/python tools/gdef-store-survey.py ~/google/fonts survey.tsv
+```
+
+On google/fonts at `c36d6f24ed9d8448fd7a4ee14667fddf8dfe701b`: **783** variable fonts,
+**758** of them with a `GDEF` item variation store, and **250** that address it from inside
+an extension lookup. The first number is the fonts whose static instances can come out
+with the default master's kerning and anchors, anywhere off the default location where the
+store varies; the second, the fonts whose partial instances can be off by a constant
+whenever an axis is pinned away from its default. Google Sans Flex is in both.
+

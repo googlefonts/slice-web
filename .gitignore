@@ -12,6 +12,7 @@ Cargo.lock.orig
 /.fonttools-venv
 /.suite-venv
 /.pathops-venv
+/.shaping-venv
 
 # Python bytecode from the conformance suite
 __pycache__/
