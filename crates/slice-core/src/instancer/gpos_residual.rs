@@ -20,8 +20,9 @@
 //!
 //! The traversal below mirrors `write-fonts`' own `RemapVarStore`, which walks exactly
 //! these structures to renumber indices. It cannot be reused, because it rewrites the
-//! pointer and never touches the value beside it, which is the entire job here. Nor can
-//! it be trusted on extension lookups, which it skips; see `lookup_of`.
+//! pointer and never touches the value beside it, which is the entire job here. Up to
+//! write-fonts 0.53 it also skipped extension lookups, and this walk copied that; see
+//! `lookup_of`.
 
 use write_fonts::tables::gdef::{CaretValue, Gdef};
 use write_fonts::tables::gpos::{
@@ -137,11 +138,12 @@ fn lookup_of(lookup: &mut PositionLookup, residual: &Residual) {
         }
         // An extension lookup holds its real subtables inline, behind a 32-bit offset, so
         // that a big lookup can sit further away than a 16-bit offset reaches. This arm
-        // used to do nothing, on the belief -- shared with write-fonts' own
-        // `RemapVarStore` -- that the wrapped subtable was another lookup in the list and
-        // would be reached on its own turn. It is not and was not: compilers move the
-        // largest lookups into extensions, and the largest is usually the kerning, so in
-        // Google Sans Flex every pair adjustment sat in here untouched.
+        // used to do nothing, on the belief -- copied from write-fonts' own
+        // `RemapVarStore`, which fixed it upstream in 0.54.0 (fontations 982b179e7e) --
+        // that the wrapped subtable was another lookup in the list and would be reached
+        // on its own turn. It is not and was not: compilers move the largest lookups into
+        // extensions, and the largest is usually the kerning, so in Google Sans Flex every
+        // pair adjustment sat in here untouched.
         PositionLookup::Extension(inner) => {
             for subtable in inner.subtables.iter_mut() {
                 match &mut **subtable {

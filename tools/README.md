@@ -345,7 +345,9 @@ left the store could not be evaluated and every value stayed at the default mast
 Recursive's marks sat 110 units off their anchors, and Google Sans Flex's 394. And the
 walk that writes a residual back into `GPOS` skipped extension lookups (type 9), believing
 the subtable they wrap would be reached on its own; it is held inline, and compilers move
-the biggest lookup — usually the kerning — into one. Google Sans Flex's kerning is in an
+the biggest lookup — usually the kerning — into one. The walk mirrors write-fonts'
+`RemapVarStore`, which had the same blind spot until 0.54.0 fixed it upstream
+(fontations `982b179e7e`, September 2026). Google Sans Flex's kerning is in an
 extension and Recursive's is not, which is why the partial check on Recursive passed all
 along and the same job on Google Sans Flex was wrong by a constant 14,298 pairs.
 
