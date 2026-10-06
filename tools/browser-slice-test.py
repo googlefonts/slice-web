@@ -529,16 +529,12 @@ def main() -> int:
             })()
             """
         )
-        # CASL goes back to its default before the axis is narrowed. Round one pinned it
-        # at 1, and pinning an axis *away* from its default while restricting another is
-        # the one partial case this build refuses: the GDEF item variation store's
-        # residual at the new default location would have to be written back into the
-        # GPOS values, which is not implemented. `partial.pinned-off-default-with-a-gdef-
-        # store-is-refused` covers that refusal; this test is about the partial path
-        # working, so it asks for a job that is supported.
-        devtools.evaluate(
-            f"({SET_INPUT})('.axis-editor tbody tr:nth-child(2) input', {json.dumps('0')})"
-        )
+        # CASL stays pinned at 1 from round one -- away from its default -- while wght is
+        # narrowed. That is the partial job a GDEF item variation store makes hardest: the
+        # store's residual at the new default has to be written back into GPOS. This test
+        # used to reset CASL first, because the job was refused; it has not been since
+        # 7f7184a, and `partial.pinned-off-default-keeps-variable-kerning` checks the
+        # values it produces.
         devtools.evaluate(
             f"({SET_INPUT})('.axis-editor tbody tr:nth-child(3) input',"
             f" {json.dumps('300:700')})"
