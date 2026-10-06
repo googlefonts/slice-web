@@ -271,12 +271,30 @@ tools/overlap-check.py --against plain.ttf merged.ttf
 |---|---|
 | `plain.ttf`, no overlap removal | 305 (189 cross, 146 self, 305 double) |
 | `merged.ttf` at 73f9f96 | **45**: 37 `self` — `e n m r u P ə Ə` and their accented forms — and 8 `empty` |
+| `merged.ttf` with the fix | **0** |
 
-The 37 were glyphs the engine never tried to merge. A bounding-box screen runs first and
-compares segments' boxes by the area they share, which for a horizontal or vertical line
-is always zero, so a stem edge crossing a horizontal one is invisible to it. The 8 are
+The 37 were glyphs the engine never tried to merge. A bounding-box screen ran first and
+compared segments' boxes by the area they shared, which for a horizontal or vertical line
+is always zero, so a stem edge crossing a horizontal one was invisible to it. The 8 were
 made by the merge: a hairline spike in the source (a curve running half a unit out and
-straight back) comes out of the sweep as a contour of its own with no area.
+straight back) came out of the sweep as a contour of its own with no area. Both are fixed
+in `crates/slice-core/src/overlaps.rs`; the regression tests use the real `n` and
+`acutecomb.viet` outlines from this instance.
+
+With the fix, `slice cut` reports `305 glyphs simplified, 377 left as they were` — the
+same 305, by name — and the worst mean edge movement against `plain.ttf` is **0.113
+units** (`eth`): the integer rounding and quadratic refit, and nothing more. 279 of the
+305 change shape at all; the other 26 are straight-sided and come back exact.
+
+The threshold that decides "the merge changed nothing" sits in a wide gap, measured by
+the ignored test `probe_area_change` in `overlaps.rs` on `plain.ttf`: the 364 glyphs
+without overlaps change area by at most **6.3e-8** square units when merged, and the 305
+with them by at least **60**:
+
+```sh
+SLICE_PROBE_FONT=plain.ttf cargo test --release -p slice-core --lib \
+    probe_area_change -- --ignored --nocapture
+```
 
 This is one font. It is the first real one overlap removal has been checked on by an
 engine other than its own; see `docs/evidence.md`.

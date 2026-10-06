@@ -49,6 +49,14 @@ use crate::SliceError;
 /// How closely the cubic result must be refitted with quadratics, in font units.
 const QUAD_ACCURACY: f64 = 0.05;
 
+/// An area too small to be ink, in square font units.
+///
+/// It decides whether a merge changed a glyph at all, and whether a contour the merge
+/// produced encloses anything. The margin either side of it is wide. On Google Sans Flex
+/// Condensed Black, merging a glyph that has no overlaps moves its area by at most
+/// 6.3e-8; merging one that has them moves it by at least 60.
+const NEGLIGIBLE_AREA: f64 = 1.0;
+
 /// What happened to a font when overlaps were removed.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct OverlapReport {
@@ -370,33 +378,51 @@ fn merged_contours(
     outer_clockwise: bool,
 ) -> Result<Option<Vec<BezPath>>, SliceError> {
     let contours = glyph_contours(font, gid)?;
-    if contours.len() < 2 && !any_self_intersection(&contours) {
-        // A single contour that does not cross itself has nothing to merge.
-        return Ok(None);
-    }
-    if !contours_can_overlap(&contours) {
-        return Ok(None);
-    }
-
-    // The sweep line reports the glyph it failed on through the caller, which knows it.
-    let merged_paths = union_nonzero(&contours, outer_clockwise).map_err(|e| match e {
+    // The merge reports the glyph it failed on through the caller, which knows it.
+    merge(&contours, outer_clockwise).map_err(|e| match e {
         SliceError::RemoveOverlaps { reason, .. } => SliceError::RemoveOverlaps {
             glyph: format!("{}", gid.to_u32()),
             reason,
         },
         other => other,
-    })?;
+    })
+}
+
+/// Merge contours into the outline of the region they fill, or report that they did not
+/// need it.
+///
+/// Every glyph goes through the sweep line; nothing tries to rule a glyph out more
+/// cheaply first. Something used to, and it failed exactly where it mattered. It
+/// compared segments' bounding boxes by the *area* they shared, and the box of a
+/// horizontal or vertical line has no area, so a stem edge could never be seen to cross
+/// anything. A single contour whose shoulder tucks into its stem -- `n`, `m`, `u`, `r`,
+/// `e` at heavy weights -- was passed over as having nothing to merge, and 37 glyphs of
+/// Google Sans Flex Condensed Black came out with their overlaps intact. A screen that
+/// gets this right is not cheap either: adjacent segments can overlap past the point they
+/// share, and a single cubic can loop over itself. The sweep is cheap enough without
+/// one: all 682 glyphs of that font take about 0.2 s in a native release build
+/// (`probe_area_change` below times it).
+fn merge(contours: &[BezPath], outer_clockwise: bool) -> Result<Option<Vec<BezPath>>, SliceError> {
+    if contours.is_empty() {
+        return Ok(None);
+    }
+    let merged_paths = union_nonzero(contours, outer_clockwise)?;
 
     if merged_paths.is_empty() {
+        // Contours that enclose nothing -- a stray two-point line -- merge to nothing,
+        // and the outline was never going to be drawn as anything else.
+        if total_area(contours) < NEGLIGIBLE_AREA {
+            return Ok(None);
+        }
         return Err(SliceError::RemoveOverlaps {
-            glyph: format!("{}", gid.to_u32()),
+            glyph: String::from("(unknown)"),
             reason: "the merge produced no contours".into(),
         });
     }
 
     // If the merge changed nothing meaningful, keep the original outline rather than
     // paying for a refit that would only add points.
-    if same_area(&contours, &merged_paths) && merged_paths.len() == contours.len() {
+    if same_area(contours, &merged_paths) && merged_paths.len() == contours.len() {
         return Ok(None);
     }
     Ok(Some(merged_paths))
@@ -494,53 +520,14 @@ impl skrifa::outline::OutlinePen for ContourPen {
     }
 }
 
-/// Cheap rejection: if no two contours' bounding boxes touch, nothing can overlap.
-fn contours_can_overlap(contours: &[BezPath]) -> bool {
-    if contours.len() < 2 {
-        return any_self_intersection(contours);
-    }
-    let boxes: Vec<_> = contours.iter().map(|c| c.bounding_box()).collect();
-    for i in 0..boxes.len() {
-        for j in (i + 1)..boxes.len() {
-            if boxes[i].intersect(boxes[j]).area() > 0.0 {
-                return true;
-            }
-        }
-    }
-    any_self_intersection(contours)
-}
-
-/// Does any contour cross itself?
-///
-/// Checks every pair of segments within a contour for an intersection that is not simply
-/// the shared endpoint of adjacent segments.
-fn any_self_intersection(contours: &[BezPath]) -> bool {
-    for contour in contours {
-        let segments: Vec<_> = contour.segments().collect();
-        let n = segments.len();
-        for i in 0..n {
-            for j in (i + 1)..n {
-                // Adjacent segments always meet at a shared point.
-                let adjacent = j == i + 1 || (i == 0 && j == n - 1);
-                let a = segments[i].bounding_box();
-                let b = segments[j].bounding_box();
-                if a.intersect(b).area() <= 0.0 {
-                    continue;
-                }
-                if !adjacent {
-                    return true;
-                }
-            }
-        }
-    }
-    false
-}
-
-/// Total signed area, used to check whether a merge changed anything.
+/// Did a merge leave the total area where it was?
 fn same_area(before: &[BezPath], after: &[BezPath]) -> bool {
-    let a: f64 = before.iter().map(|p| p.area().abs()).sum();
-    let b: f64 = after.iter().map(|p| p.area().abs()).sum();
-    (a - b).abs() < 1.0
+    (total_area(before) - total_area(after)).abs() < NEGLIGIBLE_AREA
+}
+
+/// The sum of every contour's area, each counted as positive.
+fn total_area(contours: &[BezPath]) -> f64 {
+    contours.iter().map(|p| p.area().abs()).sum()
 }
 
 /// Merge a glyph's contours into the outline of the region they fill.
@@ -599,6 +586,12 @@ fn union_nonzero(contours: &[BezPath], outer_clockwise: bool) -> Result<Vec<BezP
     Ok(merged
         .contours()
         .enumerate()
+        // A hairline spike in the source -- a curve that runs out by less than a unit and
+        // comes straight back, which interpolation leaves behind in real fonts -- comes
+        // out of the sweep as a contour of its own that encloses nothing. Written back,
+        // it is a stray path sitting on the edge of the glyph. Nothing can be nested
+        // inside a contour with no area, so dropping one leaves every depth alone.
+        .filter(|(_, contour)| contour.path.area().abs() >= NEGLIGIBLE_AREA)
         .map(|(i, contour)| {
             let want_clockwise = (depth_of(ContourIdx(i)) % 2 == 0) == outer_clockwise;
             // kurbo's signed area is positive for a counter-clockwise contour.
@@ -1001,9 +994,183 @@ mod tests {
         b.close_path();
 
         assert!(
-            !contours_can_overlap(&[a, b]),
-            "contours with disjoint bounding boxes cannot overlap"
+            merge(&[a, b], true).unwrap().is_none(),
+            "contours that do not touch have nothing to merge, and should not be refitted"
         );
+    }
+
+    /// `n` from Google Sans Flex at opsz 18, wdth 80, wght 900, as the static instance
+    /// draws it. One contour, and at the top of the stem it crosses itself: the edge runs
+    /// down to (489, 835), back up into the stem to (449, 891), and out along y = 891 to
+    /// meet the shoulder. That last edge crosses the stem's vertical one at (489, 891),
+    /// and the triangle it closes off is filled twice.
+    fn heavy_n() -> BezPath {
+        let mut n = BezPath::new();
+        n.move_to((106.0, 0.0));
+        n.line_to((106.0, 1033.0));
+        n.line_to((489.0, 1033.0));
+        n.line_to((489.0, 835.0));
+        n.line_to((449.0, 891.0));
+        n.line_to((497.0, 891.0));
+        n.quad_to((548.0, 979.0), (636.0, 1023.5));
+        n.quad_to((724.0, 1068.0), (819.0, 1068.0));
+        n.quad_to((974.0, 1068.0), (1066.0, 972.0));
+        n.quad_to((1158.0, 876.0), (1158.0, 716.0));
+        n.line_to((1158.0, 0.0));
+        n.line_to((758.0, 0.0));
+        n.line_to((758.0, 619.0));
+        n.quad_to((758.0, 682.0), (726.0, 716.5));
+        n.quad_to((694.0, 751.0), (635.0, 751.0));
+        n.quad_to((578.0, 751.0), (542.0, 711.0));
+        n.quad_to((506.0, 671.0), (506.0, 606.0));
+        n.line_to((506.0, 0.0));
+        n.close_path();
+        n
+    }
+
+    #[test]
+    fn a_contour_crossing_itself_along_straight_edges_is_merged() {
+        // This is what a user saw in Illustrator: the bounding-box screen that used to
+        // run first gave every horizontal or vertical segment a box of zero area, so it
+        // never saw this crossing and the glyph was passed over.
+        let before = vec![heavy_n()];
+        assert_eq!(
+            before[0].winding(Point::new(480.0, 870.0)).abs(),
+            2,
+            "the fixture should cover the triangle twice"
+        );
+
+        let after = merge(&before, true)
+            .unwrap()
+            .expect("a contour that crosses itself has something to merge");
+        assert_eq!(after.len(), 1, "an n is one contour once merged");
+
+        // A contour that does not cross itself encloses exactly the area it fills. The
+        // one going in counted the triangle twice, and the triangle is
+        // 1/2 * 56 * 40 = 1120 square units.
+        let doubled = total_area(&before) - total_area(&after);
+        assert!(
+            (doubled - 1120.0).abs() < NEGLIGIBLE_AREA,
+            "the merge should remove exactly the triangle's second layer, removed {doubled}"
+        );
+
+        // And the glyph fills what it filled before. The strides avoid every edge.
+        for i in 0..90 {
+            for j in 0..88 {
+                let point = Point::new(-20.0 + i as f64 * 13.7, -15.0 + j as f64 * 12.9);
+                assert_eq!(
+                    filled(&before, point),
+                    filled(&after, point),
+                    "fill changed at {point:?}"
+                );
+            }
+        }
+    }
+
+    /// `acutecomb.viet` from the same instance, drawn the way skrifa draws it. Every
+    /// corner carries a curve of zero length, and at both bottom corners the outline makes
+    /// a hairline spike -- a curve that runs half a unit straight up and comes back --
+    /// which interpolation leaves in the font.
+    fn acute_with_spikes() -> BezPath {
+        let mut acute = BezPath::new();
+        acute.move_to((-241.0, 1106.0));
+        acute.quad_to((-241.0, 1106.0), (-241.0, 1106.5));
+        acute.quad_to((-241.0, 1107.0), (-241.0, 1106.0));
+        acute.line_to((-104.0, 1473.0));
+        acute.quad_to((-104.0, 1473.0), (-104.0, 1473.0));
+        acute.quad_to((-104.0, 1473.0), (-104.0, 1473.0));
+        acute.line_to((241.0, 1473.0));
+        acute.quad_to((241.0, 1473.0), (241.0, 1473.0));
+        acute.quad_to((241.0, 1473.0), (241.0, 1473.0));
+        acute.line_to((43.0, 1106.0));
+        acute.quad_to((43.0, 1107.0), (43.0, 1106.5));
+        acute.quad_to((43.0, 1106.0), (43.0, 1106.0));
+        acute.close_path();
+        acute
+    }
+
+    #[test]
+    fn a_hairline_spike_does_not_become_a_stray_contour() {
+        let spiked = acute_with_spikes();
+
+        // The sweep splits the spike off as a contour of its own. It is dropped, so an
+        // outline with nothing else to merge is left exactly as it was.
+        assert_eq!(union(std::slice::from_ref(&spiked)).len(), 1);
+        assert!(merge(std::slice::from_ref(&spiked), true)
+            .unwrap()
+            .is_none());
+
+        // And when something else does need merging, the spike does not come along.
+        let overlapping = rect(0.0, 1300.0, 300.0, 1600.0, true);
+        let before = vec![spiked, overlapping];
+        let after = merge(&before, true)
+            .unwrap()
+            .expect("the acute and the rectangle overlap");
+        for contour in &after {
+            assert!(
+                contour.area().abs() >= NEGLIGIBLE_AREA,
+                "a contour enclosing {} square units was written back",
+                contour.area().abs()
+            );
+        }
+    }
+
+    /// How far does merging move a real font's glyph areas?
+    ///
+    /// Answers whether `NEGLIGIBLE_AREA` sits in a real gap. A glyph with no overlaps
+    /// should come back from the sweep with its area unchanged to within floating-point
+    /// noise, and one with overlaps should lose at least the area it filled twice. This
+    /// prints the largest change below the threshold and the smallest above it, and how
+    /// long sweeping every glyph took.
+    ///
+    /// ```sh
+    /// SLICE_PROBE_FONT=plain.ttf cargo test --release -p slice-core --lib \
+    ///     probe_area_change -- --ignored --nocapture
+    /// ```
+    ///
+    /// The font must be static. The recipe for the instance the threshold was measured on
+    /// is in `tools/README.md`, under `overlap-check.py`.
+    #[test]
+    #[ignore = "a probe: needs SLICE_PROBE_FONT pointing at a static font"]
+    fn probe_area_change() {
+        let path = std::env::var("SLICE_PROBE_FONT").expect("set SLICE_PROBE_FONT");
+        let bytes = std::fs::read(&path).expect("the font should be readable");
+        let font = FontRef::new(&bytes).expect("the file should be a font");
+        let (mut largest_below, mut smallest_above) = (0.0f64, f64::MAX);
+        let (mut below, mut above) = (0, 0);
+        let started = std::time::Instant::now();
+        for gid in 0..font.maxp().expect("maxp").num_glyphs() {
+            let contours = glyph_contours(&font, GlyphId::new(gid as u32)).unwrap();
+            if contours.is_empty() {
+                continue;
+            }
+            let merged = union_nonzero(&contours, true).unwrap();
+            let change = (total_area(&contours) - total_area(&merged)).abs();
+            if change < NEGLIGIBLE_AREA {
+                largest_below = largest_below.max(change);
+                below += 1;
+            } else {
+                smallest_above = smallest_above.min(change);
+                above += 1;
+            }
+        }
+        println!("{below} glyphs changed area by less than {NEGLIGIBLE_AREA}; the most by {largest_below:e}");
+        println!("{above} glyphs changed area by more; the least by {smallest_above:.1}");
+        println!(
+            "drawing and sweeping every glyph took {:?}",
+            started.elapsed()
+        );
+    }
+
+    #[test]
+    fn a_contour_that_encloses_nothing_is_left_alone() {
+        // A two-point contour is a line, and fills nothing. The merge returns nothing for
+        // it, which is not a failure: there was nothing there to draw.
+        let mut line = BezPath::new();
+        line.move_to((0.0, 0.0));
+        line.line_to((100.0, 100.0));
+        line.close_path();
+        assert!(merge(&[line], true).unwrap().is_none());
     }
 
     #[test]

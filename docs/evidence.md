@@ -54,7 +54,9 @@ tolerance.
 pinned release. All 32 pass.
 
 **By filled region, for overlap removal**, because there the outline is supposed to
-change and what must not change is which points are inside the glyph.
+change and what must not change is which points are inside the glyph. That alone is
+blind to a merge that does nothing, so the result is also checked for overlaps left
+behind, by skia-pathops rather than by our own engine.
 
 **Against 775 real fonts**, which is the only check that can say what fraction of the
 world a limitation actually affects. It found one that mattered — variable kerning
@@ -80,10 +82,14 @@ Stated because a page about evidence that only lists successes is advertising.
   charstring-level comparison against fontTools, and by nothing else.
 - **Overlap removal at scale.** There is no reference implementation to diff it against —
   fontTools' instancer does not remove overlaps — so it is checked for self-consistency
-  and by filled region, not against an oracle. The fixtures are rectangles and triangles;
-  real glyphs are curves meeting at shallow angles, which is where boolean geometry goes
-  wrong. The engine (`linesweeper`) was chosen by measurement rather than by reputation —
-  see `tools/overlap-engine-eval/` — but that measurement used the same simple shapes.
+  and by filled region, and on **one** real font by an independent engine. The fixtures
+  are rectangles and triangles; real glyphs are curves meeting at shallow angles, which is
+  where boolean geometry goes wrong. The one real font is Google Sans Flex Condensed
+  Black, after a user found overlaps left in it: `tools/overlap-check.py` found 45 glyphs
+  still overlapping or carrying stray paths, from two bugs the filled-region tests could
+  not see, and finds none now they are fixed. That is one font of the 775 the sweep reads.
+  The engine (`linesweeper`) was chosen by measurement rather than by reputation — see
+  `tools/overlap-engine-eval/` — but that measurement used the same simple shapes.
 - **The interface.** Ten of the sixty-one behavioural claims describe the running
   application — menus, the status bar, drag and drop, the thread the work runs on — and a
   corpus that drives both programs headlessly cannot reach them. Of the fifty-one it can

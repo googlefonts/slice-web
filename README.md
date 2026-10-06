@@ -232,10 +232,19 @@ PostScript counter-clockwise. Fill is unaffected by a global flip, but a font wh
 contours run against its format's convention confuses tools that read direction as
 meaning.
 
+Every glyph goes through the sweep. There used to be a cheaper screen in front of it, a
+bounding-box test, and it could not see a horizontal edge crossing a vertical one — the
+way a heavy `n`'s shoulder tucks into its stem — so those glyphs came out with their
+overlaps intact. Contours the merge leaves enclosing nothing, which a hairline spike in
+the source turns into, are dropped rather than written back as stray paths.
+
 Tested against a counter, a counter inside a counter (a circled letter — the case that
 rules out the tempting shortcut of unioning the outer-wound contours and subtracting the
-inner-wound ones), overlapping rings, same-direction nesting, and a self-intersecting bow
-tie. `tools/overlap-engine-eval/` is the harness the engine choice was measured with.
+inner-wound ones), overlapping rings, same-direction nesting, a self-intersecting bow
+tie, and the real `n` and spiked acute from Google Sans Flex Condensed Black.
+`tools/overlap-engine-eval/` is the harness the engine choice was measured with, and
+`tools/overlap-check.py` checks a merged font for anything still overlapping, with
+skia-pathops rather than our own engine.
 
 ### Variable positioning
 
