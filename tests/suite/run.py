@@ -52,11 +52,18 @@ EXTENSIONS = [".ttf", ".otf", ".woff", ".woff2"]
 
 def ensure_venv() -> Path:
     python = VENV / "bin" / "python"
-    if python.exists():
-        return python
-    print(f"creating {VENV.name} (PyQt5 + fontTools); this happens once")
-    subprocess.run([sys.executable, "-m", "venv", str(VENV)], check=True)
-    subprocess.run([str(python), "-m", "pip", "install", "-q", *REQUIREMENTS], check=True)
+    if not python.exists():
+        print(f"creating {VENV.name} (PyQt5 + fontTools); this happens once")
+        subprocess.run([sys.executable, "-m", "venv", str(VENV)], check=True)
+    # A venv that exists is not necessarily one this script made. CI's fixture step
+    # creates .suite-venv with fontTools alone, and re-executing into that re-executed
+    # forever, a hundred times a second: every CI run from 7948b04 on hit GitHub's
+    # six-hour limit in this loop. So check what the venv can import, not that it exists.
+    usable = subprocess.run([str(python), "-c", "import fontTools, PyQt5"],
+                            capture_output=True).returncode == 0
+    if not usable:
+        print(f"installing {' '.join(REQUIREMENTS)} into {VENV.name}")
+        subprocess.run([str(python), "-m", "pip", "install", "-q", *REQUIREMENTS], check=True)
     return python
 
 
@@ -64,8 +71,14 @@ def reexec_if_needed() -> None:
     try:
         import fontTools  # noqa: F401
         import PyQt5  # noqa: F401
-    except ImportError:
+    except ImportError as missing:
+        # Once is enough. If the venv still cannot import it, re-executing again would
+        # only repeat this, so stop and say why.
+        if os.environ.get("SLICE_SUITE_REEXECUTED"):
+            raise SystemExit(f"{VENV} cannot import {missing.name} even after installing "
+                             f"{' '.join(REQUIREMENTS)}") from None
         python = ensure_venv()
+        os.environ["SLICE_SUITE_REEXECUTED"] = "1"
         os.execv(str(python), [str(python), str(Path(__file__).resolve()), *sys.argv[1:]])
 
 

@@ -84,10 +84,21 @@ jobs:
           .suite-venv/bin/python tests/suite/fixtures/build.py
           sha256sum -c /tmp/fixtures.before
 
+      # The original Slice 0.7.1, at the commit docs/original-behaviour.md maps. Without
+      # it every case scored against the original crashes on `import slice`, and the
+      # comparison the corpus exists for measures nothing while the job still passes.
+      - uses: actions/checkout@v4
+        with:
+          repository: source-foundry/Slice
+          ref: 074ee9448d2b5e4ede44c1104db73239f38bfca8
+          path: original-slice
+
       # Runs every case against both programs. Exits non-zero only when *this*
       # implementation fails one: the original's failures are adjudicated in
       # docs/adjudication.md and are expected.
       - run: tests/suite/run.py --verbose
+        env:
+          SLICE_ORIGINAL_SRC: ${{ github.workspace }}/original-slice/src
 
       # The plain-English documentation is generated from the cases, so a case added
       # without regenerating it would ship an incomplete description of the suite.
