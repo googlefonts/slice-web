@@ -51,12 +51,15 @@ def reexec_in_venv() -> None:
     try:
         import pathops, uharfbuzz, fontTools  # noqa: F401,E401
         return
-    except ImportError:
-        pass
+    except ImportError as missing:
+        # Once is enough: a venv left half-installed would otherwise re-execute forever.
+        if os.environ.get("SLICE_TOOL_REEXECUTED"):
+            sys.exit(f"{VENV} cannot import {missing.name}; delete it and run this again")
     python = VENV / "bin" / "python"
     if not python.exists():
         subprocess.run([sys.executable, "-m", "venv", str(VENV)], check=True)
         subprocess.run([str(python), "-m", "pip", "install", "-q", *PACKAGES], check=True)
+    os.environ["SLICE_TOOL_REEXECUTED"] = "1"
     os.execv(str(python), [str(python), str(Path(__file__).resolve()), *sys.argv[1:]])
 
 

@@ -84,11 +84,14 @@ def reexec_in_venv() -> None:
         import pathops  # noqa: F401
         import fontTools  # noqa: F401
         return
-    except ImportError:
-        pass
+    except ImportError as missing:
+        # Once is enough: a venv left half-installed would otherwise re-execute forever.
+        if os.environ.get("SLICE_TOOL_REEXECUTED"):
+            sys.exit(f"{VENV} cannot import {missing.name}; delete it and run this again")
     python = ensure_venv()
     if python is None:
         sys.exit("skipping the overlap check")
+    os.environ["SLICE_TOOL_REEXECUTED"] = "1"
     os.execv(str(python), [str(python), str(Path(__file__).resolve()), *sys.argv[1:]])
 
 
