@@ -11,6 +11,7 @@ Cargo.lock.orig
 .DS_Store
 /.fonttools-venv
 /.suite-venv
+/.pathops-venv
 
 # Python bytecode from the conformance suite
 __pycache__/

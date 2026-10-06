@@ -14,6 +14,7 @@ something that is already in the tree.
 | `diffenator3-compare.py` | Does a font sliced here *render* the same as one sliced by fontTools — glyphs and shaped words, pixel by pixel? |
 | `corpus-sweep.py` | Pointed at hundreds of real variable fonts nobody designed a test around, does it crash, does it produce a readable font, and does that font agree with fontTools? |
 | `compare-cff2-with-fonttools.py` | Does instancing a CFF2 font resolve the same blends into the same charstrings fontTools writes? |
+| `overlap-check.py` | After overlap removal, does any glyph still overlap — checked with skia-pathops, not our engine — and did every glyph keep its shape? |
 | `overlap-engine-eval/` | Would `linesweeper` remove overlaps correctly on the shapes `flo_curves` gets wrong, and can it be used from WebAssembly? (a cargo crate; see its own README) |
 | `woff2-decoder-eval/` | Which pure-Rust WOFF2 decoder reconstructs an sfnt most faithfully, and which ones still build? (a cargo crate, not a script; see its own README) |
 
@@ -228,3 +229,54 @@ pass** — cargo reused the compiled crate wholesale, no build script ran at all
 probe read the repository's own stamp believing it had read the clone's. The script now
 asserts that the build script output it reads names the clone's `.git`, so that failure
 reports itself rather than reporting success.
+
+## `overlap-check.py`
+
+**After "Remove overlapping contours", does any glyph still overlap, and did the merge
+keep every glyph's shape?**
+
+The engine's own tests ask only the second half: whether merging changed which points are
+inside a glyph. A merge that does nothing at all passes that perfectly, and that is how
+this got past them. A user outlined Google Sans Flex Condensed Black in Illustrator and
+found `e`, `n`, `m`, `r`, `u` still overlapping, with the box ticked.
+
+So this asks the first half too, with skia-pathops: the Skia path ops fontTools'
+`removeOverlaps` is built on, and nothing `linesweeper` shares code with. Per glyph,
+composites resolved, it reports contours that cross each other (`cross`), contours that
+cross themselves (`self`), area filled more than once (`double`: the non-zero and
+even-odd fills differ), and contours enclosing under one square unit (`empty`: stray
+paths). With `--against` it also measures the mean distance each glyph's filled edge
+moved.
+
+```sh
+tools/overlap-check.py FONT [FONT ...]          # any overlaps left?
+tools/overlap-check.py --against PLAIN MERGED   # ...and did the shapes survive?
+```
+
+The case it was written for, Google Sans Flex 4.005 from google/fonts
+(`ofl/googlesansflex/GoogleSansFlex[GRAD,ROND,opsz,slnt,wdth,wght].ttf`, sha256
+`c31a482fbecbf2e07e6890134d20078723aadf732c9b9c6c9a44f86f8265b6fe`), at the reporter's
+location:
+
+```sh
+GSF='GoogleSansFlex[GRAD,ROND,opsz,slnt,wdth,wght].ttf'
+AXES='--axis opsz=18 --axis wdth=80 --axis wght=900 --axis GRAD=0 --axis ROND=0 --axis slnt=0'
+target/release/slice cut "$GSF" plain.ttf  $AXES
+target/release/slice cut "$GSF" merged.ttf $AXES --remove-overlaps
+tools/overlap-check.py plain.ttf merged.ttf
+tools/overlap-check.py --against plain.ttf merged.ttf
+```
+
+| | glyphs with problems, of 682 |
+|---|---|
+| `plain.ttf`, no overlap removal | 305 (189 cross, 146 self, 305 double) |
+| `merged.ttf` at 73f9f96 | **45**: 37 `self` — `e n m r u P ə Ə` and their accented forms — and 8 `empty` |
+
+The 37 were glyphs the engine never tried to merge. A bounding-box screen runs first and
+compares segments' boxes by the area they share, which for a horizontal or vertical line
+is always zero, so a stem edge crossing a horizontal one is invisible to it. The 8 are
+made by the merge: a hairline spike in the source (a curve running half a unit out and
+straight back) comes out of the sweep as a contour of its own with no area.
+
+This is one font. It is the first real one overlap removal has been checked on by an
+engine other than its own; see `docs/evidence.md`.
