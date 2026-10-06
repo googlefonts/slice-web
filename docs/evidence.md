@@ -15,7 +15,7 @@ reproduces it.
 <ul class="cards" markdown="0">
   <li>
     <h3><a href="../test-suite.html">The test suite in plain English</a></h3>
-    <p>All 301 conformance cases, each with the reasoning for why that is the right
+    <p>All 302 conformance cases, each with the reasoning for why that is the right
        answer. Generated from the cases themselves, so it cannot drift from them.</p>
   </li>
   <li>
@@ -52,6 +52,11 @@ tolerance.
 
 **Against fontTools' own test vectors** for the sub-space solver, lifted verbatim from a
 pinned release. All 32 pass.
+
+**By setting text, for positioning**, because kerning and mark anchors are invisible to
+every outline check. `tools/kerning-compare.py` shapes every pair of characters with
+HarfBuzz and compares where the glyphs land against fontTools' instance and the variable
+font itself.
 
 **By filled region, for overlap removal**, because there the outline is supposed to
 change and what must not change is which points are inside the glyph. That alone is

@@ -198,7 +198,10 @@ pub fn rebuild(
         return Ok(None);
     };
 
-    let rebuilt = crate::instancer::varstore::rebuild(&store, plans)?;
+    let rebuilt = crate::instancer::varstore::rebuild(
+        &store,
+        &crate::instancer::regions::Request::Restricted(plans),
+    )?;
 
     let mut residual: HashMap<Tag, f64> = HashMap::new();
     for record in mvar.value_records() {

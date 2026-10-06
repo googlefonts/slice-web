@@ -17,8 +17,7 @@ use read_fonts::tables::variations::ItemVariationStore;
 use write_fonts::tables::variations as wvar;
 
 use super::glyphs::ot_round;
-use super::partial::AxisPlan;
-use super::regions::{restricted_remap, Region, RegionList};
+use super::regions::{Region, RegionList, Request};
 use crate::SliceError;
 
 /// A store rebuilt over a narrowed design space.
@@ -30,8 +29,11 @@ pub struct Rebuilt {
     pub default_deltas: Vec<Vec<f64>>,
 }
 
-/// Re-tent `store` onto the axes that survive `plans`.
-pub fn rebuild(store: &ItemVariationStore, plans: &[AxisPlan]) -> Result<Rebuilt, SliceError> {
+/// Re-tent `store` onto the axes that survive `request`.
+///
+/// With every axis pinned nothing survives: the store comes back as `None`, and each
+/// delta set's whole value at the pinned location is in `default_deltas`.
+pub fn rebuild(store: &ItemVariationStore, request: &Request) -> Result<Rebuilt, SliceError> {
     let list = store
         .variation_region_list()
         .map_err(|e| SliceError::Read(format!("an item variation store is malformed: {e}")))?;
@@ -59,7 +61,7 @@ pub fn rebuild(store: &ItemVariationStore, plans: &[AxisPlan]) -> Result<Rebuilt
         })
         .collect();
 
-    let axis_count = plans.iter().filter(|plan| !plan.is_pinned()).count() as u16;
+    let axis_count = request.surviving_axis_count();
     let mut regions = RegionList::default();
     let mut subtables: Vec<Option<wvar::ItemVariationData>> = Vec::new();
     let mut default_deltas: Vec<Vec<f64>> = Vec::new();
@@ -81,7 +83,7 @@ pub fn rebuild(store: &ItemVariationStore, plans: &[AxisPlan]) -> Result<Rebuilt
                     .unwrap_or_default()
             })
             .collect();
-        let remap = restricted_remap(&old, plans);
+        let remap = request.remap(&old);
 
         let mut rows: Vec<Vec<i32>> = Vec::with_capacity(usize::from(data.item_count()));
         let mut gains = Vec::with_capacity(usize::from(data.item_count()));
@@ -190,8 +192,11 @@ mod tests {
         }
     }
 
-    fn plan(limit: crate::axes::AxisLimit, normalized: crate::solver::AxisTriple) -> AxisPlan {
-        AxisPlan {
+    fn plan(
+        limit: crate::axes::AxisLimit,
+        normalized: crate::solver::AxisTriple,
+    ) -> crate::instancer::partial::AxisPlan {
+        crate::instancer::partial::AxisPlan {
             spec: crate::axes::AxisSpec {
                 tag: "wght".into(),
                 min: 400.0,
@@ -213,7 +218,7 @@ mod tests {
             crate::axes::AxisLimit::range(400.0, 700.0),
             crate::solver::AxisTriple::with_distances(0.0, 0.0, 0.6, 0.0, 500.0),
         )];
-        let rebuilt = rebuild(&store, &plans).unwrap();
+        let rebuilt = rebuild(&store, &Request::Restricted(&plans)).unwrap();
 
         assert_eq!(rebuilt.default_deltas, vec![vec![0.0, 0.0]]);
         let written = dump_table(&rebuilt.store.unwrap()).unwrap();
@@ -231,8 +236,21 @@ mod tests {
             crate::axes::AxisLimit::Pin(700.0),
             crate::solver::AxisTriple::new(0.6, 0.6, 0.6),
         )];
-        let rebuilt = rebuild(&store, &plans).unwrap();
+        let rebuilt = rebuild(&store, &Request::Restricted(&plans)).unwrap();
         assert!(rebuilt.store.is_none());
         assert!((rebuilt.default_deltas[0][0] - 60.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_static_location_resolves_the_whole_store_into_default_deltas() {
+        // The static instancer asks with the normalized location itself, which is the
+        // only form that carries what avar 2 did to it. Same answer as pinning by plan.
+        let bytes = store_bytes(&[100, -50]);
+        let store = ItemVariationStore::read(FontData::new(&bytes)).unwrap();
+        let rebuilt = rebuild(&store, &Request::Pinned(&[0.6])).unwrap();
+        assert!(rebuilt.store.is_none());
+        assert_eq!(rebuilt.default_deltas.len(), 1);
+        assert!((rebuilt.default_deltas[0][0] - 60.0).abs() < 1e-9);
+        assert!((rebuilt.default_deltas[0][1] + 30.0).abs() < 1e-9);
     }
 }

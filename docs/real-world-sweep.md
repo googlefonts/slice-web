@@ -71,8 +71,13 @@ The first run of this sweep found that a `GDEF` item variation store -- variable
 and anchors -- blocked partial instancing on **365 of the 706 variable fonts that have an
 axis worth narrowing, 52%**, of which 184 had more than one axis. That was the largest
 limitation in the program, and the corpus could never have shown it: the one fixture with a
-`GDEF` variation store is used by cases that pin every axis, where the store is legitimately
-dropped.
+`GDEF` variation store was used only by cases that pinned every axis, and at the time this
+was written that looked harmless, on the belief that a static instance legitimately drops
+the store. It does not -- each value has to be resolved at the pinned location first -- and
+the static path was not even dropping it: it copied `GDEF` and `GPOS` through untouched, so
+every static instance kerned like its default master. That was found in October 2026 from a
+user's report, and `static.gdef-varstore.kerning-applied-at-the-pinned-location` now holds
+it; see `tools/kerning-compare.py` in `tools/README.md` for what it measured.
 
 It is fixed. `varstore::rebuild`, written for CFF2's `HVAR`, re-tents a store that carries
 its own deltas, and that is the same operation `GDEF` needs; wiring it up took nine lines

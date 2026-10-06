@@ -15,6 +15,7 @@ use write_fonts::{from_obj::ToOwnedTable, FontBuilder};
 use super::glyphs::{apply_gvar_deltas, build_glyph, ot_round, read_glyph, GlyphShape};
 use super::mvar;
 use super::normalize::NormalizedLocation;
+use super::regions::Request;
 use crate::SliceError;
 
 /// Tables that describe variation and therefore have no place in a static instance.
@@ -265,10 +266,45 @@ fn finish_static<'a>(
             .map_err(|e| SliceError::Write(e.to_string()))?;
     }
 
+    // GDEF's item variation store is what variable kerning and anchors are measured
+    // against. With every axis pinned, each of its delta sets becomes a constant -- its
+    // value at this location -- which goes into the GPOS value record, anchor or ligature
+    // caret that addresses it, and then the store and the addresses go. These tables used
+    // to be copied through untouched, which left a store nothing can evaluate: with no
+    // fvar a shaper has no coordinates, so the instance kerned like the default master.
+    let mut skip = VARIATION_TABLES.to_vec();
+    if let Some((gdef, gpos)) =
+        super::partial::rebuilt_gdef(font, &Request::Pinned(&location.coords))?
+    {
+        if holds_nothing(&gdef) {
+            // The store was all it carried, and an empty GDEF says nothing. fontTools
+            // drops it too.
+            skip.push(Tag::new(b"GDEF"));
+        } else {
+            out.add_table(&gdef)
+                .map_err(|e| SliceError::Write(e.to_string()))?;
+        }
+        if let Some(gpos) = gpos {
+            out.add_table(&gpos)
+                .map_err(|e| SliceError::Write(e.to_string()))?;
+        }
+    }
+
     // Everything else is copied across verbatim, minus the variation tables.
-    copy_remaining_tables(out, font, VARIATION_TABLES);
+    copy_remaining_tables(out, font, &skip);
 
     Ok(std::mem::take(out).build())
+}
+
+/// True when a `GDEF` has nothing left in it: no glyph classes, attachment points,
+/// carets, mark classes, mark sets or variation store.
+fn holds_nothing(gdef: &write_fonts::tables::gdef::Gdef) -> bool {
+    gdef.glyph_class_def.is_none()
+        && gdef.attach_list.is_none()
+        && gdef.lig_caret_list.is_none()
+        && gdef.mark_attach_class_def.is_none()
+        && gdef.mark_glyph_sets_def.is_none()
+        && gdef.item_var_store.is_none()
 }
 
 /// The widest advance in `hmtx`, which is what `hhea.advanceWidthMax` reports.

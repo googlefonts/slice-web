@@ -40,6 +40,7 @@ use write_fonts::{from_obj::ToOwnedTable, FontBuilder};
 
 use super::glyphs::{build_glyph, ot_round, read_glyph, GlyphPoints};
 use super::normalize::{apply_segment_map, normalize_axis, quantize, segment_maps};
+use super::regions::Request;
 use crate::axes::{AxisLimit, AxisSpec};
 use crate::solver::{rebase_tent, AxisTriple, Tent as SolverTent};
 use crate::SliceError;
@@ -465,7 +466,7 @@ fn partial_cff2(font: &FontRef, plans: &[AxisPlan]) -> Result<Vec<u8>, SliceErro
             let store = hvar
                 .item_variation_store()
                 .map_err(|e| SliceError::Read(format!("the HVAR table is malformed: {e}")))?;
-            let rebuilt = super::varstore::rebuild(&store, plans)?;
+            let rebuilt = super::varstore::rebuild(&store, &Request::Restricted(plans))?;
             // Whatever no longer varies is baked into `hmtx`, exactly as fontTools does
             // for a CFF2 font (`_instantiateVHVAR`, "CFF2 fonts need hmtx/vmtx updated
             // here").
@@ -540,10 +541,12 @@ fn partial_cff2(font: &FontRef, plans: &[AxisPlan]) -> Result<Vec<u8>, SliceErro
 ///
 /// The constant is zero whenever every other axis stays at its default, because deltas are
 /// measured from the default master. Pinning an axis *away* from its default is what makes
-/// it non-zero, and this used to refuse that case.
-fn rebuilt_gdef(
+/// it non-zero, and this used to refuse that case. A static instance is the limit of that:
+/// every axis pinned, nothing left in the store, and the whole value at the pinned
+/// location becomes the constant.
+pub(super) fn rebuilt_gdef(
     font: &FontRef,
-    plans: &[AxisPlan],
+    request: &Request,
 ) -> Result<Option<(write_fonts::tables::gdef::Gdef, Option<Gpos>)>, SliceError> {
     let Ok(gdef) = font.gdef() else {
         return Ok(None);
@@ -553,7 +556,7 @@ fn rebuilt_gdef(
     };
     let store = store.map_err(|e| SliceError::Read(format!("GDEF is malformed: {e}")))?;
 
-    let rebuilt = super::varstore::rebuild(&store, plans)?;
+    let rebuilt = super::varstore::rebuild(&store, request)?;
     let mut owned: write_fonts::tables::gdef::Gdef = gdef.to_owned_table();
 
     let residual =
@@ -633,7 +636,7 @@ fn finish_partial<'a>(
     // onto the narrowed axes is the same operation HVAR needs, so it is the same code;
     // `varstore::rebuild` preserves every address, which is what keeps the delta-set
     // index maps and the GPOS references pointing at the row they always pointed at.
-    if let Some((gdef, gpos)) = rebuilt_gdef(font, plans)? {
+    if let Some((gdef, gpos)) = rebuilt_gdef(font, &Request::Restricted(plans))? {
         out.add_table(&gdef)
             .map_err(|e| SliceError::Write(e.to_string()))?;
         // Only present when the residual was non-zero; otherwise GPOS is copied through

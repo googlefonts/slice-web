@@ -232,23 +232,6 @@ impl SliceJob {
             font.data().to_vec()
         };
 
-        // Variable positioning is the one piece of variation data still carried through
-        // untouched. For a static instance that means kerning and anchors come out at
-        // the default master's values rather than the pinned location's, which is a
-        // quiet difference worth saying out loud rather than letting someone discover.
-        if font_ref
-            .gdef()
-            .map(|gdef| gdef.item_var_store().is_some())
-            .unwrap_or(false)
-        {
-            notes.push(
-                "Note: this font has variable kerning or anchors (a GDEF item variation \
-                 store), which this build does not apply. Positioning comes out at the \
-                 default location."
-                    .to_string(),
-            );
-        }
-
         // Feature variations describe substitutions by axis position, so they have to
         // be resolved against the new design space before anything downstream can rely
         // on the font's shaping behaviour.

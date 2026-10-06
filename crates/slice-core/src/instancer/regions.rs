@@ -79,6 +79,34 @@ impl RegionRemap {
     }
 }
 
+/// What is to become of the design space.
+pub enum Request<'a> {
+    /// Every axis pinned, at this normalized location in the *input* axis order.
+    Pinned(&'a [f64]),
+    /// Some axes survive; the plans are in `fvar` order, one per input axis.
+    Restricted(&'a [AxisPlan]),
+}
+
+impl Request<'_> {
+    /// How one set of regions maps onto the requested design space.
+    pub fn remap(&self, regions: &[Region]) -> RegionRemap {
+        match self {
+            Request::Pinned(location) => pinned_remap(regions, location),
+            Request::Restricted(plans) => restricted_remap(regions, plans),
+        }
+    }
+
+    /// How many axes the output font still has.
+    pub fn surviving_axis_count(&self) -> u16 {
+        match self {
+            Request::Pinned(_) => 0,
+            Request::Restricted(plans) => {
+                plans.iter().filter(|plan| !plan.is_pinned()).count() as u16
+            }
+        }
+    }
+}
+
 /// The remap for a location where every axis is pinned.
 ///
 /// Nothing survives, so every region collapses to its scalar at that location and the

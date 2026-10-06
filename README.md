@@ -39,7 +39,7 @@ The four evidence documents, also readable in the repository:
 
 | | |
 |---|---|
-| [Test suite in plain English](docs/test-suite.md) | All 301 conformance cases and the reasoning behind each |
+| [Test suite in plain English](docs/test-suite.md) | All 302 conformance cases and the reasoning behind each |
 | [Adjudication](docs/adjudication.md) | Every case the original Slice fails, and the measurement behind each verdict |
 | [Real-world sweep](docs/real-world-sweep.md) | What happens on 775 real variable fonts from Google Fonts |
 | [Behaviour map](docs/original-behaviour.md) | The numbered map of the original that the suite is written against |
@@ -260,10 +260,25 @@ what makes it non-zero: the kerning at `CASL=1` is not the kerning at `CASL=0`, 
 variable fonts in Google Fonts have both a store and more than one axis, so it is a case
 worth getting right rather than refusing.
 
-Checked against fontTools on the real Recursive, `CASL` pinned at 1 with `wght` restricted
-to 300:700: **6,439 kerning pairs, identical at wght 300, 500 and 700**. The interior
-sample is the one that matters — a store re-tented without its residual is exactly right at
-the default and wrong everywhere else.
+A static instance is the limit of the same thing: every axis pinned, the whole value at
+that location becomes the residual, and the store and every pointer into it go. Static
+instances used to copy `GDEF` and `GPOS` through untouched instead, and with no `fvar` left
+nothing could evaluate the store, so every one of them kerned and placed its marks like the
+default master. A user found it in Google Sans Flex Condensed Black.
+
+The walk that writes residuals back reaches inside extension lookups, which is where
+compilers put the biggest lookup — usually the kerning. It used to skip them, on the
+belief that the subtable an extension wraps is reached on its own; it is held inline.
+
+`tools/kerning-compare.py` checks all of this by setting text: every pair of characters,
+shaped with HarfBuzz, against fontTools' instance and the variable font itself. On the
+real Recursive, `CASL` pinned at 1 with `wght` restricted to 300:700, **all 167,281 pairs
+are placed exactly as fontTools places them at wght 300, 500 and 700** — the interior
+sample is the one that matters, since a store re-tented without its residual is exactly
+right at the default and wrong everywhere else. On Google Sans Flex Condensed Black,
+static, all 110,224 pairs are placed exactly as the variable font places them, where
+20,251 were not. Of ten more Google Fonts, sampled by a survey rather than chosen, eight
+had static instances wrong by tens of thousands of pairs, and none does now.
 
 `GSUB`/`GPOS` *feature variations* — the conditional substitutions `rvrn` uses — are
 resolved separately.

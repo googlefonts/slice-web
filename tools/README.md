@@ -16,6 +16,7 @@ something that is already in the tree.
 | `compare-cff2-with-fonttools.py` | Does instancing a CFF2 font resolve the same blends into the same charstrings fontTools writes? |
 | `kerning-compare.py` | Does a sliced font position glyphs — kerning, mark attachment — the way the variable font does at that location, and the way fontTools' instance does? Shapes every pair of characters with HarfBuzz. |
 | `gdef-store-survey.py` | How many fonts in Google Fonts keep kerning or anchors in a `GDEF` variation store, and how many address it from inside an extension lookup? |
+| `kerning-sample.sh` | Across real fonts, not just the two the bug was found on, do static instances kern the way fontTools' do? Ten fonts fixed by the survey, before and after in one run. |
 | `overlap-check.py` | After overlap removal, does any glyph still overlap — checked with skia-pathops, not our engine — and did every glyph keep its shape? |
 | `overlap-engine-eval/` | Would `linesweeper` remove overlaps correctly on the shapes `flo_curves` gets wrong, and can it be used from WebAssembly? (a cargo crate; see its own README) |
 | `woff2-decoder-eval/` | Which pure-Rust WOFF2 decoder reconstructs an sfnt most faithfully, and which ones still build? (a cargo crate, not a script; see its own README) |
@@ -332,19 +333,19 @@ Google Sans Flex 4.005 (the file and sha256 under `overlap-check.py`), 332 chara
 110,224 pairs, and the real Recursive from `web/fonts/` (converted from WOFF2), 409
 characters, 167,281 pairs — pairs placed differently from fontTools' instance:
 
-| request | at dc17993 |
-|---|---|
-| GSF static, opsz 18 wdth 80 wght 900 | **20,251**, up to 394 units |
-| GSF partial, wdth 80, wght 400:900, at 400 / 650 / 900 | **14,298** at each |
-| Recursive static, CASL 1 wght 700 slnt −15 CRSV 1 | **1,108**, up to 110 units |
-| Recursive partial, CASL 1, wght 300:700, at 300 / 500 / 700 | 0 |
+| request | at dc17993 | fixed |
+|---|---|---|
+| GSF static, opsz 18 wdth 80 wght 900 | **20,251**, up to 394 units | 0 |
+| GSF partial, wdth 80, wght 400:900, at 400 / 650 / 900 | **14,298** at each | 0 |
+| Recursive static, CASL 1 wght 700 slnt −15 CRSV 1 | **1,108**, up to 110 units | 0 |
+| Recursive partial, CASL 1, wght 300:700, at 300 / 500 / 700 | 0 | 0 |
 
-Two bugs. A static instance copies `GDEF` and `GPOS` through untouched, so with no `fvar`
-left the store cannot be evaluated and every value stays at the default master's —
-Recursive's marks sit 110 units off their anchors, and Google Sans Flex's 394. And the
-walk that writes a residual back into `GPOS` skips extension lookups (type 9), believing
-the subtable they wrap is reached on its own; it is held inline, and compilers move the
-biggest lookup — usually the kerning — into one. Google Sans Flex's kerning is in an
+Two bugs. A static instance copied `GDEF` and `GPOS` through untouched, so with no `fvar`
+left the store could not be evaluated and every value stayed at the default master's —
+Recursive's marks sat 110 units off their anchors, and Google Sans Flex's 394. And the
+walk that writes a residual back into `GPOS` skipped extension lookups (type 9), believing
+the subtable they wrap would be reached on its own; it is held inline, and compilers move
+the biggest lookup — usually the kerning — into one. Google Sans Flex's kerning is in an
 extension and Recursive's is not, which is why the partial check on Recursive passed all
 along and the same job on Google Sans Flex was wrong by a constant 14,298 pairs.
 
@@ -360,8 +361,41 @@ Takes about a minute per location for a font this size.
 
 On google/fonts at `c36d6f24ed9d8448fd7a4ee14667fddf8dfe701b`: **783** variable fonts,
 **758** of them with a `GDEF` item variation store, and **250** that address it from inside
-an extension lookup. The first number is the fonts whose static instances can come out
+an extension lookup. The first number is the fonts whose static instances could come out
 with the default master's kerning and anchors, anywhere off the default location where the
-store varies; the second, the fonts whose partial instances can be off by a constant
-whenever an axis is pinned away from its default. Google Sans Flex is in both.
+store varies; the second, the fonts whose partial instances could be off by a constant
+whenever an axis was pinned away from its default. Google Sans Flex is in both.
+
+## `kerning-sample.sh`
+
+**Across real fonts, not just the two the bug was found on, do static instances kern the
+way fontTools' instances do?**
+
+```sh
+tools/kerning-sample.sh survey.tsv sample.tsv [OTHER_SLICE_BINARY]
+```
+
+The sample is every 25th of the 250 fonts `gdef-store-survey.py` finds addressing their
+store from inside an extension lookup, so the survey fixes it rather than anyone choosing
+it. Each is instanced statically with every axis at its maximum and compared by
+`kerning-compare.py`, once with this checkout's build and once with another binary — here
+dc17993's, built in a worktree.
+
+| font | pairs | at dc17993 | fixed |
+|---|---|---|---|
+| AlanSans[wght] | 99,856 | **62,731** | 0 |
+| Bitter[wght] | 177,241 | **58,994** | 0 |
+| FinlandicaHeadline[wght] | 177,241 | **76,971** | 0 |
+| Literata-Italic[opsz,wght] | 173,889 | **60,992** | 0 |
+| NotoSerif-Italic[wdth,wght] | 405,769 | **53,800** | 0 |
+| PlaypenSans[wght] | 209,764 | **157,980** | 0 |
+| PlaywriteDKLoopet[wght] | 124,609 | 0 | 0 |
+| PlaywritePE[wght] | 124,609 | 0 | 0 |
+| SchibstedGrotesk[wght] | 127,449 | **60,903** | 0 |
+| SUSE[wght] | 103,684 | **35,173** | 0 |
+
+Eight of the ten were wrong by tens of thousands of pairs, and none is now. The two
+Playwrite fonts were never wrong because their positioning does not vary: shaped at the
+default weight and at the maximum, the variable font adjusts every one of these pairs
+identically, so there was nothing for the old build to miss.
 

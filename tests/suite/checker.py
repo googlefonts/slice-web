@@ -1072,6 +1072,24 @@ class Checker:
         has = getattr(table, "FeatureVariations", None) is not None
         return not has, f"FeatureVariations present={has}"
 
+    def no_gdef_var_store(self, _):
+        """A static font keeps no variation store for its positioning.
+
+        fontTools, pinning every axis, adds each `VariationIndex` device's delta at that
+        location into the value beside it, then deletes the devices and `GDEF`'s store.
+        A store left behind is inert -- with no `fvar` a shaper has no coordinates to
+        evaluate it at -- and that is exactly how it hides a bug: everything still
+        parses, and the kerning is the default master's.
+        """
+        if "GDEF" in self.font and getattr(self.font["GDEF"].table, "VarStore", None):
+            return False, "GDEF still has an item variation store"
+        devices = 0
+        if "GPOS" in self.font:
+            devices = _variation_index_devices(self.font["GPOS"].table, set())
+        if devices:
+            return False, f"{devices} GPOS device tables still address a variation store"
+        return True, "no store, and nothing in GPOS addresses one"
+
     def feature_variation_axes_valid(self, spec):
         table = self._layout(spec["table"])
         if table is None:
@@ -1127,6 +1145,28 @@ def _near_edge(contours, x, y, margin) -> bool:
             if (x - px) ** 2 + (y - py) ** 2 <= m2:
                 return True
     return False
+
+
+def _variation_index_devices(node, seen: set) -> int:
+    """How many `VariationIndex` device tables sit anywhere under `node`.
+
+    A walk over every attribute rather than a list of the places devices can live: value
+    records, anchors and carets across a dozen subtable formats, any of which a list
+    could miss. A device is `VariationIndex` when its DeltaFormat is 0x8000.
+    """
+    if id(node) in seen:
+        return 0
+    seen.add(id(node))
+    if getattr(node, "DeltaFormat", None) == 0x8000:
+        return 1
+    if isinstance(node, (list, tuple)):
+        children = node
+    elif hasattr(node, "__dict__"):
+        children = vars(node).values()
+    else:
+        return 0
+    return sum(_variation_index_devices(child, seen) for child in children
+               if isinstance(child, (list, tuple)) or hasattr(child, "__dict__"))
 
 
 # --------------------------------------------------------------------------- driver

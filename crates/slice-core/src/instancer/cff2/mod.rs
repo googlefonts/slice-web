@@ -29,17 +29,10 @@ use read_fonts::tables::variations::ItemVariationStore;
 use read_fonts::{FontData, FontRead, FontRef};
 use write_fonts::tables::variations as wvar;
 
-use super::partial::AxisPlan;
 use super::regions::{self, Region, RegionRemap};
 use crate::SliceError;
 
-/// What is to become of the design space.
-pub enum Request<'a> {
-    /// Every axis pinned, at this normalized location in the *input* axis order.
-    Pinned(&'a [f64]),
-    /// Some axes survive; the plans are in `fvar` order, one per input axis.
-    Restricted(&'a [AxisPlan]),
-}
+pub use super::regions::Request;
 
 /// A rebuilt `CFF2` table.
 pub struct Cff2Instance {
@@ -69,10 +62,7 @@ pub fn instantiate(font: &FontRef, request: &Request) -> Result<Cff2Instance, Sl
     let per_data = read_regions(source.var_store)?;
     let remaps: Vec<RegionRemap> = per_data
         .iter()
-        .map(|regions| match request {
-            Request::Pinned(location) => regions::pinned_remap(regions, location),
-            Request::Restricted(plans) => regions::restricted_remap(regions, plans),
-        })
+        .map(|regions| request.remap(regions))
         .collect();
 
     let var_store = build_var_store(&remaps, request)?;
@@ -204,14 +194,14 @@ fn build_var_store(
     remaps: &[RegionRemap],
     request: &Request,
 ) -> Result<Option<Vec<u8>>, SliceError> {
-    let Request::Restricted(plans) = request else {
+    if matches!(request, Request::Pinned(_)) {
         return Ok(None);
-    };
+    }
     if remaps.iter().all(|remap| remap.new_region_count() == 0) {
         return Ok(None);
     }
 
-    let axis_count = plans.iter().filter(|plan| !plan.is_pinned()).count() as u16;
+    let axis_count = request.surviving_axis_count();
     let mut list = regions::RegionList::default();
     let data: Vec<Option<wvar::ItemVariationData>> = remaps
         .iter()

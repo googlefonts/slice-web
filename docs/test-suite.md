@@ -37,11 +37,11 @@ Every case is labelled with where its authority comes from:
 | label | meaning | cases |
 |---|---|---|
 | `spec` | the OpenType specification requires it | 86 |
-| `fonttools` | inherited from fontTools, which the original delegates to | 107 |
+| `fonttools` | inherited from fontTools, which the original delegates to | 108 |
 | `slice-ui` | the application's own contract | 74 |
 | `judgement` | a defensible design choice with no external authority | 34 |
 
-There are **301 cases** in total, across 6 areas.
+There are **302 cases** in total, across 6 areas.
 17 of them require removing overlaps, which the original never
 had; it is expected to fail those, and that is not counted against it.
 
@@ -52,7 +52,7 @@ had; it is expected to fail those, and that is not counted against it.
 - [names](#names) — 45 cases
 - [outlines-containers](#outlines-containers) — 57 cases
 - [partial-instancing](#partial-instancing) — 59 cases
-- [static-instancing](#static-instancing) — 51 cases
+- [static-instancing](#static-instancing) — 52 cases
 
 ## axis-syntax
 
@@ -2130,6 +2130,14 @@ DSIG is a digital signature over the font's own bytes; instancing rewrites glyf,
 
 <sub>covers G11 · authority: `spec` · fixture: `with-dsig`</sub>
 
+### `static.gdef-varstore.kerning-applied-at-the-pinned-location`
+
+**Variable kerning is resolved at the pinned location, not left at the default's**
+
+Variable kerning and anchors live in a `GDEF` item variation store that `GPOS` value records reach into through `VariationIndex` device tables. Pinning every axis has to add each device's delta at the pinned location into the value beside it, then delete the devices and the store, as fontTools' `instantiateOTL` does. Copying both tables through untouched fails quietly: with no `fvar` a shaper has no coordinates to evaluate the store at, so every outline is right and the text is set with the default master's kerning. A user found this in Google Sans Flex Condensed Black, where 20,251 of 110,224 character pairs were placed wrongly, by up to 394 units (`tools/kerning-compare.py`). The location is off the default on both axes and interior on both, so neither the default master nor a single extreme master can satisfy it by accident. Measured in fontTools 4.62.1 at wght 650, wdth 75: A/V kerns -95, V/A -57 and T/A -122, against -40, -20 and -60 at the default; and fontTools removes `GDEF` altogether, because the store was all it held.
+
+<sub>covers G1, G13 · authority: `fonttools` · fixture: `gdef-varstore`</sub>
+
 ### `static.head.bbox-recalculated-at-default`
 
 **The head bounding box is recalculated at the default location**
@@ -2556,7 +2564,7 @@ that a reimplementation knows they exist, not because the corpus checks them.
 | F1 | 1 | With no font loaded, the status bar reads "Requires a font path" |
 | F2 | 3 | Axis entries are validated before the save dialog opens; a parse |
 | F3 | 3 | The job is refused if it does not narrow the design space (B13) |
-| G1 | 26 | Pinning every axis yields a static font: no `fvar`, no `gvar`, no |
+| G1 | 27 | Pinning every axis yields a static font: no `fvar`, no `gvar`, no |
 | G2 | 43 | Pinning some axes and restricting others yields a variable font |
 | G3 | 11 | `avar` segment maps are renormalized onto the new extents |
 | G4 | 12 | Named instances that fall outside the new design space are dropped |
@@ -2568,7 +2576,7 @@ that a reimplementation knows they exist, not because the corpus checks them.
 | G10 | 24 | Name records that existed only to name axes and instances the |
 | G11 | 1 | `DSIG` is deleted, because it signs bytes that no longer exist |
 | G12 | 4 | At the default overlap mode (`KEEP_AND_SET_FLAGS`), a static |
-| G13 | 45 | Outlines at the requested location match what a renderer produces |
+| G13 | 46 | Outlines at the requested location match what a renderer produces |
 | G14 | 20 | original never removes overlaps. `instantiateVariableFont` accepts |
 | H1 | 21 | output container is the **input's** container, whatever the user names the |
 | H2 | 1 | WOFF output is compressed with zopfli, because the worker sets |

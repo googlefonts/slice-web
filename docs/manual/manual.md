@@ -379,7 +379,7 @@ them.
 Every behavioural claim in this manual is tested, and the tests are readable:
 
 - **[The test suite in plain English](https://felipesanches.github.io/slice-web/test-suite.html)**
-  — all 301 conformance cases, each with the reasoning for why that is the right answer.
+  — all 302 conformance cases, each with the reasoning for why that is the right answer.
 - **[Adjudication](https://felipesanches.github.io/slice-web/adjudication.html)** — every
   case the original Slice fails, with the measurement behind each verdict.
 - **[The real-world sweep](https://felipesanches.github.io/slice-web/real-world-sweep.html)**

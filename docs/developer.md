@@ -61,7 +61,7 @@ cargo test --workspace              # 192 tests
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 
-tests/suite/run.py                  # 301 conformance cases, both implementations
+tests/suite/run.py                  # 302 conformance cases, both implementations
 tests/suite/run.py --runner ours    # just this one
 tests/suite/run.py --case axis.     # filter by id prefix
 tests/suite/run.py --verbose        # per-check detail on failures

@@ -192,6 +192,8 @@ The checker evaluates these against the output font with fontTools. Any check ca
 | `no_feature_variations` | `table` | the table has no `FeatureVariations` |
 | `feature_variation_axes_valid` | `table` | every condition's axis index exists in the output `fvar` |
 | `substitutes` | `table`, `feature`, `from`, `to` | that feature's lookups map one glyph to another |
+| `kerning_matches_source_across` | `locations`, `tolerance` (default 0) | every `GPOS` pair adjustment in the output, instanced at each location if it is still variable, equals the **source fixture**'s at that location |
+| `no_gdef_var_store` | | `GDEF`, if present, has no item variation store, and no `GPOS` device table still addresses one — the state fontTools leaves a static instance in |
 
 ## Fixtures
 

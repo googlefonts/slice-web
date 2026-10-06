@@ -15,14 +15,18 @@
 //! because deltas are measured from the default master. Pinning an axis *away* from its
 //! default is what makes it non-zero: the kerning at `wdth=50` is not the kerning at
 //! `wdth=100`, and once `wdth` is gone the difference has to live in the value itself.
+//! A static instance is the limit: every axis pinned, the constant is the whole value at
+//! that location, and the store goes along with every pointer into it.
 //!
 //! The traversal below mirrors `write-fonts`' own `RemapVarStore`, which walks exactly
 //! these structures to renumber indices. It cannot be reused, because it rewrites the
-//! pointer and never touches the value beside it, which is the entire job here.
+//! pointer and never touches the value beside it, which is the entire job here. Nor can
+//! it be trusted on extension lookups, which it skips; see `lookup_of`.
 
 use write_fonts::tables::gdef::{CaretValue, Gdef};
 use write_fonts::tables::gpos::{
-    AnchorTable, Gpos, MarkArray, PairPos, PairPosFormat1, PairPosFormat2, PositionLookup,
+    AnchorTable, CursivePosFormat1, ExtensionSubtable, Gpos, MarkArray, MarkBasePosFormat1,
+    MarkLigPosFormat1, MarkMarkPosFormat1, PairPos, PairPosFormat1, PairPosFormat2, PositionLookup,
     SinglePos, SinglePosFormat1, SinglePosFormat2, ValueRecord,
 };
 use write_fonts::tables::layout::DeviceOrVariationIndex;
@@ -103,106 +107,150 @@ fn lookup_of(lookup: &mut PositionLookup, residual: &Residual) {
     match lookup {
         PositionLookup::Single(inner) => {
             for subtable in inner.subtables.iter_mut() {
-                match &mut **subtable {
-                    SinglePos::Format1(SinglePosFormat1 { value_record, .. }) => {
-                        value_of(value_record, residual)
-                    }
-                    SinglePos::Format2(SinglePosFormat2 { value_records, .. }) => {
-                        for record in value_records {
-                            value_of(record, residual);
-                        }
-                    }
-                }
+                single_of(subtable, residual);
             }
         }
         PositionLookup::Pair(inner) => {
             for subtable in inner.subtables.iter_mut() {
-                match &mut **subtable {
-                    PairPos::Format1(PairPosFormat1 { pair_sets, .. }) => {
-                        for set in pair_sets {
-                            for record in &mut set.pair_value_records {
-                                value_of(&mut record.value_record1, residual);
-                                value_of(&mut record.value_record2, residual);
-                            }
-                        }
-                    }
-                    PairPos::Format2(PairPosFormat2 { class1_records, .. }) => {
-                        for class1 in class1_records {
-                            for class2 in &mut class1.class2_records {
-                                value_of(&mut class2.value_record1, residual);
-                                value_of(&mut class2.value_record2, residual);
-                            }
-                        }
-                    }
-                }
+                pair_of(subtable, residual);
             }
         }
         PositionLookup::Cursive(inner) => {
             for subtable in inner.subtables.iter_mut() {
-                for entry in &mut subtable.entry_exit_record {
-                    for anchor in [entry.entry_anchor.as_mut(), entry.exit_anchor.as_mut()]
-                        .into_iter()
-                        .flatten()
-                    {
-                        anchor_of(anchor, residual);
-                    }
-                }
+                cursive_of(subtable, residual);
             }
         }
         PositionLookup::MarkToBase(inner) => {
             for subtable in inner.subtables.iter_mut() {
-                mark_array_of(&mut subtable.mark_array, residual);
-                {
-                    let bases = &mut *subtable.base_array;
-                    for record in bases.base_records.iter_mut() {
-                        for slot in record.base_anchors.iter_mut() {
-                            if let Some(anchor) = slot.as_mut() {
-                                anchor_of(anchor, residual);
-                            }
-                        }
-                    }
-                }
+                mark_to_base_of(subtable, residual);
             }
         }
         PositionLookup::MarkToLig(inner) => {
             for subtable in inner.subtables.iter_mut() {
-                mark_array_of(&mut subtable.mark_array, residual);
-                {
-                    let ligatures = &mut *subtable.ligature_array;
-                    for attach in ligatures.ligature_attaches.iter_mut() {
-                        for component in attach.component_records.iter_mut() {
-                            for slot in component.ligature_anchors.iter_mut() {
-                                if let Some(anchor) = slot.as_mut() {
-                                    anchor_of(anchor, residual);
-                                }
-                            }
-                        }
-                    }
-                }
+                mark_to_lig_of(subtable, residual);
             }
         }
         PositionLookup::MarkToMark(inner) => {
             for subtable in inner.subtables.iter_mut() {
-                mark_array_of(&mut subtable.mark1_array, residual);
-                {
-                    let marks = &mut *subtable.mark2_array;
-                    for record in marks.mark2_records.iter_mut() {
-                        for slot in record.mark2_anchors.iter_mut() {
-                            if let Some(anchor) = slot.as_mut() {
-                                anchor_of(anchor, residual);
-                            }
-                        }
+                mark_to_mark_of(subtable, residual);
+            }
+        }
+        // An extension lookup holds its real subtables inline, behind a 32-bit offset, so
+        // that a big lookup can sit further away than a 16-bit offset reaches. This arm
+        // used to do nothing, on the belief -- shared with write-fonts' own
+        // `RemapVarStore` -- that the wrapped subtable was another lookup in the list and
+        // would be reached on its own turn. It is not and was not: compilers move the
+        // largest lookups into extensions, and the largest is usually the kerning, so in
+        // Google Sans Flex every pair adjustment sat in here untouched.
+        PositionLookup::Extension(inner) => {
+            for subtable in inner.subtables.iter_mut() {
+                match &mut **subtable {
+                    ExtensionSubtable::Single(ext) => single_of(&mut ext.extension, residual),
+                    ExtensionSubtable::Pair(ext) => pair_of(&mut ext.extension, residual),
+                    ExtensionSubtable::Cursive(ext) => cursive_of(&mut ext.extension, residual),
+                    ExtensionSubtable::MarkToBase(ext) => {
+                        mark_to_base_of(&mut ext.extension, residual)
                     }
+                    ExtensionSubtable::MarkToLig(ext) => {
+                        mark_to_lig_of(&mut ext.extension, residual)
+                    }
+                    ExtensionSubtable::MarkToMark(ext) => {
+                        mark_to_mark_of(&mut ext.extension, residual)
+                    }
+                    ExtensionSubtable::Contextual(_) | ExtensionSubtable::ChainContextual(_) => {}
                 }
             }
         }
         // Contextual and chained-contextual lookups position by *invoking* other lookups
         // rather than by carrying values of their own, so the values they reach are
-        // corrected when those lookups are visited. An extension lookup wraps one of the
-        // above; the inner one is in the same lookup list and is reached on its own turn.
-        PositionLookup::Contextual(_)
-        | PositionLookup::ChainContextual(_)
-        | PositionLookup::Extension(_) => {}
+        // corrected when those lookups are visited.
+        PositionLookup::Contextual(_) | PositionLookup::ChainContextual(_) => {}
+    }
+}
+
+fn single_of(subtable: &mut SinglePos, residual: &Residual) {
+    match subtable {
+        SinglePos::Format1(SinglePosFormat1 { value_record, .. }) => {
+            value_of(value_record, residual)
+        }
+        SinglePos::Format2(SinglePosFormat2 { value_records, .. }) => {
+            for record in value_records {
+                value_of(record, residual);
+            }
+        }
+    }
+}
+
+fn pair_of(subtable: &mut PairPos, residual: &Residual) {
+    match subtable {
+        PairPos::Format1(PairPosFormat1 { pair_sets, .. }) => {
+            for set in pair_sets {
+                for record in &mut set.pair_value_records {
+                    value_of(&mut record.value_record1, residual);
+                    value_of(&mut record.value_record2, residual);
+                }
+            }
+        }
+        PairPos::Format2(PairPosFormat2 { class1_records, .. }) => {
+            for class1 in class1_records {
+                for class2 in &mut class1.class2_records {
+                    value_of(&mut class2.value_record1, residual);
+                    value_of(&mut class2.value_record2, residual);
+                }
+            }
+        }
+    }
+}
+
+fn cursive_of(subtable: &mut CursivePosFormat1, residual: &Residual) {
+    for entry in &mut subtable.entry_exit_record {
+        for anchor in [entry.entry_anchor.as_mut(), entry.exit_anchor.as_mut()]
+            .into_iter()
+            .flatten()
+        {
+            anchor_of(anchor, residual);
+        }
+    }
+}
+
+fn mark_to_base_of(subtable: &mut MarkBasePosFormat1, residual: &Residual) {
+    mark_array_of(&mut subtable.mark_array, residual);
+    for record in subtable.base_array.base_records.iter_mut() {
+        for anchor in record
+            .base_anchors
+            .iter_mut()
+            .flat_map(|slot| slot.as_mut())
+        {
+            anchor_of(anchor, residual);
+        }
+    }
+}
+
+fn mark_to_lig_of(subtable: &mut MarkLigPosFormat1, residual: &Residual) {
+    mark_array_of(&mut subtable.mark_array, residual);
+    for attach in subtable.ligature_array.ligature_attaches.iter_mut() {
+        for component in attach.component_records.iter_mut() {
+            for anchor in component
+                .ligature_anchors
+                .iter_mut()
+                .flat_map(|slot| slot.as_mut())
+            {
+                anchor_of(anchor, residual);
+            }
+        }
+    }
+}
+
+fn mark_to_mark_of(subtable: &mut MarkMarkPosFormat1, residual: &Residual) {
+    mark_array_of(&mut subtable.mark1_array, residual);
+    for record in subtable.mark2_array.mark2_records.iter_mut() {
+        for anchor in record
+            .mark2_anchors
+            .iter_mut()
+            .flat_map(|slot| slot.as_mut())
+        {
+            anchor_of(anchor, residual);
+        }
     }
 }
 
@@ -335,6 +383,61 @@ mod tests {
         value_of(&mut record, &Residual::new(&deltas, true));
         assert_eq!(record.x_advance, Some(105));
         assert!(record.x_advance_device.is_none());
+    }
+
+    #[test]
+    fn kerning_inside_an_extension_lookup_gets_its_residual() {
+        // Compilers move the biggest lookups into extensions, and the biggest is usually
+        // the kerning. This arm used to be skipped, which left every pair adjustment in
+        // Google Sans Flex at the default master's value.
+        use write_fonts::tables::gdef::Gdef;
+        use write_fonts::tables::gpos::{
+            ExtensionPosFormat1, PairSet, PairValueRecord, PositionLookupList,
+        };
+        use write_fonts::tables::layout::{FeatureList, Lookup, LookupFlag, ScriptList};
+        use write_fonts::types::GlyphId16;
+
+        let mut kern = ValueRecord::new().with_x_advance(-40);
+        kern.x_advance_device = device(0, 0);
+        let pair = PairPosFormat1::new(
+            [GlyphId16::new(1)].into_iter().collect(),
+            vec![PairSet::new(vec![PairValueRecord::new(
+                GlyphId16::new(2),
+                kern,
+                ValueRecord::new(),
+            )])],
+        );
+        let wrapped = ExtensionSubtable::Pair(ExtensionPosFormat1::new(2, PairPos::Format1(pair)));
+        let mut gpos = Gpos::new(
+            ScriptList::default(),
+            FeatureList::default(),
+            PositionLookupList::new(vec![PositionLookup::Extension(Lookup::new(
+                LookupFlag::empty(),
+                vec![wrapped],
+            ))]),
+        );
+
+        apply(
+            &mut gpos,
+            &mut Gdef::default(),
+            &Residual::new(&[vec![-55.0]], true),
+        );
+
+        let PositionLookup::Extension(lookup) = &*gpos.lookup_list.lookups[0] else {
+            panic!("the lookup changed type");
+        };
+        let ExtensionSubtable::Pair(extension) = &*lookup.subtables[0] else {
+            panic!("the subtable changed type");
+        };
+        let PairPos::Format1(pair) = &*extension.extension else {
+            panic!("the pair subtable changed format");
+        };
+        let record = &pair.pair_sets[0].pair_value_records[0].value_record1;
+        assert_eq!(record.x_advance, Some(-95));
+        assert!(
+            record.x_advance_device.is_none(),
+            "a pointer into a store that is gone dangles"
+        );
     }
 
     #[test]
