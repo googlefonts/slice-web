@@ -13,6 +13,7 @@ Cargo.lock.orig
 /.suite-venv
 /.pathops-venv
 /.shaping-venv
+/.report-venv
 
 # Python bytecode from the conformance suite
 __pycache__/

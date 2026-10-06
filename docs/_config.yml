@@ -25,6 +25,7 @@ exclude:
   - manual/manual.md
   - manual/build.py
   - manual/slice-manual.tex
+  - reports/*/build.py
 
 # `app/` is the compiled WebAssembly build, copied in after Jekyll has run.
 keep_files:
