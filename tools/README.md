@@ -17,6 +17,7 @@ something that is already in the tree.
 | `kerning-compare.py` | Does a sliced font position glyphs — kerning, mark attachment — the way the variable font does at that location, and the way fontTools' instance does? Shapes every pair of characters with HarfBuzz. |
 | `gdef-store-survey.py` | How many fonts in Google Fonts keep kerning or anchors in a `GDEF` variation store, and how many address it from inside an extension lookup? |
 | `kerning-sample.sh` | Across real fonts, not just the two the bug was found on, do static instances kern the way fontTools' do? Ten fonts fixed by the survey, before and after in one run. |
+| `live-check.py` | After a push, does the deployed app produce a correct font from a user's own link? Drives the real GitHub Pages site, then runs `overlap-check.py` and `kerning-compare.py --ours` on what it saves. |
 | `overlap-check.py` | After overlap removal, does any glyph still overlap — checked with skia-pathops, not our engine — and did every glyph keep its shape? |
 | `overlap-engine-eval/` | Would `linesweeper` remove overlaps correctly on the shapes `flo_curves` gets wrong, and can it be used from WebAssembly? (a cargo crate; see its own README) |
 | `woff2-decoder-eval/` | Which pure-Rust WOFF2 decoder reconstructs an sfnt most faithfully, and which ones still build? (a cargo crate, not a script; see its own README) |
@@ -312,9 +313,9 @@ item variation store that `GPOS` reaches into, and an instance that mishandles i
 every glyph perfectly and sets every line at the wrong width. So this sets text: it
 shapes every ordered pair of characters with HarfBuzz in three fonts — the variable font
 at the location (HarfBuzz evaluates the store itself), fontTools' instance from
-`instantiateVariableFont`, and ours from `slice cut` — and compares every glyph's advance
-and offsets. A pair is as often a base and a combining mark as two letters, so anchors
-are covered along with kerning. A request that leaves axes variable is compared at each
+`instantiateVariableFont`, and ours from `slice cut` (or a font given with `--ours`) —
+and compares every glyph's advance and offsets. A pair is as often a base and a combining
+mark as two letters, so anchors are covered along with kerning. A request that leaves axes variable is compared at each
 surviving axis's minimum, middle and maximum.
 
 ```sh
@@ -400,4 +401,28 @@ Eight of the ten were wrong by tens of thousands of pairs, and none is now. The 
 Playwrite fonts were never wrong because their positioning does not vary: shaped at the
 default weight and at the maximum, the variable font adjusts every one of these pairs
 identically, so there was nothing for the old build to miss.
+
+## `live-check.py`
+
+**After a push, does the app on GitHub Pages — not a local build — produce a correct font
+from a user's own link?**
+
+```sh
+tools/live-check.py FONT                     # the Google Sans Flex report's link
+tools/live-check.py FONT --url 'https://felipesanches.github.io/slice-web/app/?axes=...'
+```
+
+It opens the link in headless Chromium exactly as a user would paste it, gives the page
+the font through its file input, presses Slice and keeps the bytes the page hands back.
+It prints the build stamp from the status bar, so a run says which commit it tested, then
+passes the font to `overlap-check.py` (when the link asks for overlap removal) and to
+`kerning-compare.py --ours` with the link's axis settings. The DevTools client is
+`browser-slice-test.py`'s.
+
+After 8d1b9c7 was deployed, with Google Sans Flex 4.005 (the file under
+`overlap-check.py`) and the report's link: the page showed `v0.1.0 8d1b9c7`, filled the
+Axis Editor with 18 80 900 0 0 0 and the Name Editor with the link's five names, kept
+overlap removal on, and saved 222,492 bytes. **0 of 682 glyphs** overlap, and **0 of
+110,224 character pairs** are placed differently from fontTools' instance or from the
+variable font itself.
 

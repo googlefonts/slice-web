@@ -31,6 +31,8 @@ Usage
     tools/kerning-compare.py FONT ... --all-chars   # every character in cmap
     tools/kerning-compare.py FONT ... --no-build    # use the built target/release/slice
     tools/kerning-compare.py FONT ... --slice PATH  # test another build's binary
+    tools/kerning-compare.py FONT ... --ours SLICED # test a font sliced elsewhere,
+                                                    # e.g. by the deployed web app
 
 `--axis` takes the Axis Editor syntax, exactly as `slice cut` does, and every axis not named
 is left whole. Without --all-chars the pairs are drawn from the font's characters in
@@ -159,13 +161,16 @@ def main() -> int:
     parser.add_argument("--no-build", action="store_true")
     parser.add_argument("--slice", type=Path, default=SLICE,
                         help="the slice binary to test; another build's implies --no-build")
+    parser.add_argument("--ours", type=Path, metavar="SLICED",
+                        help="compare this already-sliced font instead of running slice cut "
+                             "(implies --no-build); --axis must describe how it was made")
     args = parser.parse_args()
     reexec_in_venv()
 
     from fontTools.ttLib import TTFont
     from fontTools.varLib.instancer import instantiateVariableFont
 
-    if not args.no_build and args.slice == SLICE:
+    if not args.no_build and args.slice == SLICE and not args.ours:
         subprocess.run(["cargo", "build", "--release", "-p", "slice-cli"], cwd=REPO_ROOT,
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -179,11 +184,12 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="kerning-compare-") as scratch:
         scratch = Path(scratch)
-        ours = scratch / "ours.ttf"
+        ours = args.ours or scratch / "ours.ttf"
         reference = scratch / "fonttools.ttf"
-        subprocess.run([str(args.slice), "cut", str(args.font), str(ours),
-                        *(f"--axis={a}" for a in args.axis)],
-                       check=True, stdout=subprocess.DEVNULL)
+        if not args.ours:
+            subprocess.run([str(args.slice), "cut", str(args.font), str(ours),
+                            *(f"--axis={a}" for a in args.axis)],
+                           check=True, stdout=subprocess.DEVNULL)
         instantiateVariableFont(TTFont(args.font), dict(request)).save(reference)
         still_variable = "fvar" in TTFont(ours)
 
