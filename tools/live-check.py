@@ -20,7 +20,7 @@ says which commit it tested. Then the font goes to the two independent checks:
 Usage
 -----
     tools/live-check.py FONT                    # the Google Sans Flex report's link
-    tools/live-check.py FONT --url 'https://felipesanches.github.io/slice-web/app/?axes=...'
+    tools/live-check.py FONT --url 'https://googlefonts.github.io/slice-web/app/?axes=...'
     tools/live-check.py FONT --keep out.ttf     # keep the font the page produced
 
 Needs chromium and network access. Exits 0 when the page produced a font and both
@@ -43,9 +43,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TOOLS = REPO_ROOT / "tools"
 
-# The link from the October 2026 Google Sans Flex report, verbatim.
+# The link from the October 2026 Google Sans Flex report. The report's copy pointed at
+# felipesanches.github.io, where the site lived until the repository moved to the
+# googlefonts organisation; GitHub Pages does not follow a transfer, so that host now
+# answers 404. Same query, new host.
 REPORT_URL = (
-    "https://felipesanches.github.io/slice-web/app/"
+    "https://googlefonts.github.io/slice-web/app/"
     "?axes=opsz=18,wdth=80,wght=900,GRAD=0,ROND=0,slnt=0"
     "&n1=Google%20Sans%20Flex%20Condensed&n2=Black"
     "&n3=4.005%3BGOOG%3BGoogleSansFlex-Condensed-Black"

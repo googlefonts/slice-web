@@ -72,7 +72,7 @@ Slice takes a variable font and gives you a smaller one. You can:
   \item \textbf{Remove overlapping contours}, which the original Slice never did, and which matters because support for overlapping outlines in design applications remains poor after more than a decade.
 \end{itemize}
 
-Everything happens in your browser. The font is never uploaded anywhere. You can \href{https://felipesanches.github.io/slice-web/app/}{try it now}.
+Everything happens in your browser. The font is never uploaded anywhere. You can \href{https://googlefonts.github.io/slice-web/app/}{try it now}.
 
 \section{Two ways to run it}
 
@@ -80,7 +80,7 @@ Everything happens in your browser. The font is never uploaded anywhere. You can
 
 The current build of \texttt{main} is published and ready to use:
 
-\textbf{<https://felipesanches.github.io/slice-web/app/>}
+\textbf{<https://googlefonts.github.io/slice-web/app/>}
 
 Nothing is uploaded. The page is static files and a WebAssembly module; your font is read by the browser, sliced there, and handed straight back as a download. You can confirm that by loading the page and then going offline before you press Slice.
 
@@ -386,10 +386,10 @@ Stated plainly, because a font tool that is quiet about its gaps is worse than o
 Every behavioural claim in this manual is tested, and the tests are readable:
 
 \begin{itemize}
-  \item \textbf{\href{https://felipesanches.github.io/slice-web/test-suite.html}{The test suite in plain English}} --- all 302 conformance cases, each with the reasoning for why that is the right answer.
-  \item \textbf{\href{https://felipesanches.github.io/slice-web/adjudication.html}{Adjudication}} --- every case the original Slice fails, with the measurement behind each verdict.
-  \item \textbf{\href{https://felipesanches.github.io/slice-web/real-world-sweep.html}{The real-world sweep}} --- what happens on 775 real variable fonts from Google Fonts: 177,154 glyphs compared against fontTools with no disagreements.
-  \item \textbf{\href{https://felipesanches.github.io/slice-web/original-behaviour.html}{The behaviour map}} --- the numbered map of the original program's behaviour that the suite is written against.
+  \item \textbf{\href{https://googlefonts.github.io/slice-web/test-suite.html}{The test suite in plain English}} --- all 302 conformance cases, each with the reasoning for why that is the right answer.
+  \item \textbf{\href{https://googlefonts.github.io/slice-web/adjudication.html}{Adjudication}} --- every case the original Slice fails, with the measurement behind each verdict.
+  \item \textbf{\href{https://googlefonts.github.io/slice-web/real-world-sweep.html}{The real-world sweep}} --- what happens on 775 real variable fonts from Google Fonts: 177,154 glyphs compared against fontTools with no disagreements.
+  \item \textbf{\href{https://googlefonts.github.io/slice-web/original-behaviour.html}{The behaviour map}} --- the numbered map of the original program's behaviour that the suite is written against.
 \end{itemize}
 
 Absolute URLs rather than filenames, so the same line works in the PDF, on the website and in the repository.

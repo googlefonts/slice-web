@@ -2,7 +2,7 @@
 
 **Build custom design sub-spaces from variable fonts, in the browser.**
 
-### → [Try it](https://felipesanches.github.io/slice-web/app/)
+### → [Try it](https://googlefonts.github.io/slice-web/app/)
 
 The current build of `main`, deployed automatically on every push.
 
@@ -24,16 +24,16 @@ and handed straight back as a download. There is no server, and nothing to uploa
 
 ## Documentation
 
-Everything is at **[felipesanches.github.io/slice-web](https://felipesanches.github.io/slice-web/)**.
+Everything is at **[googlefonts.github.io/slice-web](https://googlefonts.github.io/slice-web/)**.
 
 | | |
 |---|---|
-| **[The application](https://felipesanches.github.io/slice-web/app/)** | Slice itself, running. Built from `main` by CI, not committed |
-| **[User's manual](https://felipesanches.github.io/slice-web/manual/)** | The whole tool: the three editors, the axis syntax, overlap removal, the command line, and what every error message means. Also a [PDF](docs/manual/slice-manual.pdf) |
-| [Install](https://felipesanches.github.io/slice-web/install/) | Nothing for the browser; one cargo build for the command line |
-| [Developer](https://felipesanches.github.io/slice-web/developer/) | Building, testing, the code layout, and how to contribute |
-| [Licences](https://felipesanches.github.io/slice-web/license/) | The application, the documentation and the third-party work |
-| [Evidence](https://felipesanches.github.io/slice-web/evidence/) | What is tested, how it was measured, and what is still unknown |
+| **[The application](https://googlefonts.github.io/slice-web/app/)** | Slice itself, running. Built from `main` by CI, not committed |
+| **[User's manual](https://googlefonts.github.io/slice-web/manual/)** | The whole tool: the three editors, the axis syntax, overlap removal, the command line, and what every error message means. Also a [PDF](docs/manual/slice-manual.pdf) |
+| [Install](https://googlefonts.github.io/slice-web/install/) | Nothing for the browser; one cargo build for the command line |
+| [Developer](https://googlefonts.github.io/slice-web/developer/) | Building, testing, the code layout, and how to contribute |
+| [Licences](https://googlefonts.github.io/slice-web/license/) | The application, the documentation and the third-party work |
+| [Evidence](https://googlefonts.github.io/slice-web/evidence/) | What is tested, how it was measured, and what is still unknown |
 
 The four evidence documents, also readable in the repository:
 

@@ -61,29 +61,29 @@ pub fn MenuBar(state: AppState, on_open: Callback<()>) -> impl IntoView {
                 </button>
                 <MenuLink
                     label="Documentation"
-                    href="https://github.com/felipesanches/slice-web#readme"
+                    href="https://github.com/googlefonts/slice-web#readme"
                 />
                 <MenuLink
                     label="Release Notes"
-                    href="https://github.com/felipesanches/slice-web/releases"
+                    href="https://github.com/googlefonts/slice-web/releases"
                 />
                 <hr/>
                 <MenuLink
                     label="View License"
-                    href="https://github.com/felipesanches/slice-web/blob/main/LICENSE"
+                    href="https://github.com/googlefonts/slice-web/blob/main/LICENSE"
                 />
                 <MenuLink
                     label="View Source"
-                    href="https://github.com/felipesanches/slice-web"
+                    href="https://github.com/googlefonts/slice-web"
                 />
                 <hr/>
                 <MenuLink
                     label="Issue Tracker"
-                    href="https://github.com/felipesanches/slice-web/issues"
+                    href="https://github.com/googlefonts/slice-web/issues"
                 />
                 <MenuLink
                     label="Report a Bug"
-                    href="https://github.com/felipesanches/slice-web/issues/new"
+                    href="https://github.com/googlefonts/slice-web/issues/new"
                 />
                 <hr/>
                 <MenuLink

@@ -6,7 +6,7 @@ members = ["crates/slice-core", "crates/slice-cli", "crates/slice-web"]
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/felipesanches/slice-web"
+repository = "https://github.com/googlefonts/slice-web"
 # 1.85 because `read-fonts` 0.43 and `wuff` 0.2 both declare it; the previous 1.82 had
 # already stopped being true when read-fonts moved.
 rust-version = "1.85"

@@ -8,7 +8,7 @@ description: "The application, this documentation, and the third-party work both
 ## The application
 
 Slice is free software under the **GNU General Public License, version 3**. The full text
-is in [LICENSE](https://github.com/felipesanches/slice-web/blob/main/LICENSE).
+is in [LICENSE](https://github.com/googlefonts/slice-web/blob/main/LICENSE).
 
 It carries that licence because the program it reimplements does:
 [Slice](https://github.com/source-foundry/Slice) by Source Foundry (Christopher Simpkins)
@@ -18,13 +18,13 @@ is GPL-3.0, and this project's interface and behaviour derive from it.
 
 The documentation is distributed under the same terms as the application. The manual's
 source is
-[`docs/manual/manual.md`](https://github.com/felipesanches/slice-web/blob/main/docs/manual/manual.md);
+[`docs/manual/manual.md`](https://github.com/googlefonts/slice-web/blob/main/docs/manual/manual.md);
 the PDF and this website are both generated from it.
 
 ## Third-party work
 
 Recorded in full in
-[`thirdparty/`](https://github.com/felipesanches/slice-web/tree/main/thirdparty).
+[`thirdparty/`](https://github.com/googlefonts/slice-web/tree/main/thirdparty).
 
 **The Slice icon** is the original project's, carried over so this version is recognisable
 as the same tool. It is a derivative of the

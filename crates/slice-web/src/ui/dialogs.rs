@@ -14,7 +14,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const COMMIT: &str = env!("SLICE_COMMIT");
 
 /// Where the repository lives, for turning a commit into something clickable.
-pub const REPOSITORY: &str = "https://github.com/felipesanches/slice-web";
+pub const REPOSITORY: &str = "https://github.com/googlefonts/slice-web";
 
 /// The commit as a person should read it: seven characters, or a word saying why not.
 pub fn commit_label() -> String {

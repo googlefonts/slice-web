@@ -11,7 +11,7 @@ Needs a Rust toolchain (1.85 or newer, from [rustup.rs](https://rustup.rs)), and
 browser build the `wasm32-unknown-unknown` target and `wasm-pack`:
 
 ```sh
-git clone https://github.com/felipesanches/slice-web
+git clone https://github.com/googlefonts/slice-web
 cd slice-web
 
 rustup target add wasm32-unknown-unknown
@@ -103,12 +103,12 @@ checks, described in full in [the evidence pages](../evidence/):
 ## Contributing
 
 Pull requests are welcome at
-[github.com/felipesanches/slice-web](https://github.com/felipesanches/slice-web).
+[github.com/googlefonts/slice-web](https://github.com/googlefonts/slice-web).
 
 A change to behaviour wants a case in `tests/suite/cases/`, not only a Rust unit test. The
 cases are declarative JSON evaluated by a shared checker and run against *both*
 implementations, so a case cannot be quietly written to flatter one of them.
-[`tests/suite/README.md`](https://github.com/felipesanches/slice-web/blob/main/tests/suite/README.md)
+[`tests/suite/README.md`](https://github.com/googlefonts/slice-web/blob/main/tests/suite/README.md)
 describes the format, the available check kinds and the fixtures.
 
 Two rules the corpus is under, both learned the hard way:
@@ -130,7 +130,7 @@ page together. `docs/test-suite.md` is generated too, by `tests/suite/gen-docs.p
 
 ## Reporting a problem
 
-File it on the [issue tracker](https://github.com/felipesanches/slice-web/issues). A font
+File it on the [issue tracker](https://github.com/googlefonts/slice-web/issues). A font
 that reproduces the problem is worth more than anything else you can include; if you
 cannot share it, the output of `slice info yourfont.ttf --json` describes the design space
 without shipping the outlines. From the web version, quote the commit hash in the status

@@ -9,7 +9,7 @@ description: "Nothing at all for the browser; one build for the command line"
 
 There is nothing to install.
 
-**<https://felipesanches.github.io/slice-web/app/>**
+**<https://googlefonts.github.io/slice-web/app/>**
 
 It is a static page and a WebAssembly module. Any current version of Firefox, Chrome,
 Edge or Safari runs it. Your font is read, sliced and returned by the browser itself, so
@@ -20,7 +20,7 @@ If you would rather host it yourself, build it and copy the directory anywhere t
 serves static files:
 
 ```sh
-git clone https://github.com/felipesanches/slice-web
+git clone https://github.com/googlefonts/slice-web
 cd slice-web
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack
@@ -37,7 +37,7 @@ The only requirement of the host is that it serves `.wasm` with the
 system libraries beyond libc.
 
 ```sh
-git clone https://github.com/felipesanches/slice-web
+git clone https://github.com/googlefonts/slice-web
 cd slice-web
 cargo build --release -p slice-cli
 ```

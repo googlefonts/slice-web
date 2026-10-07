@@ -24,7 +24,7 @@ Slice takes a variable font and gives you a smaller one. You can:
   than a decade.
 
 Everything happens in your browser. The font is never uploaded anywhere. You can
-[try it now](https://felipesanches.github.io/slice-web/app/).
+[try it now](https://googlefonts.github.io/slice-web/app/).
 
 ## Two ways to run it
 
@@ -32,7 +32,7 @@ Everything happens in your browser. The font is never uploaded anywhere. You can
 
 The current build of `main` is published and ready to use:
 
-**<https://felipesanches.github.io/slice-web/app/>**
+**<https://googlefonts.github.io/slice-web/app/>**
 
 Nothing is uploaded. The page is static files and a WebAssembly module; your font is read
 by the browser, sliced there, and handed straight back as a download. You can confirm that
@@ -378,14 +378,14 @@ them.
 
 Every behavioural claim in this manual is tested, and the tests are readable:
 
-- **[The test suite in plain English](https://felipesanches.github.io/slice-web/test-suite.html)**
+- **[The test suite in plain English](https://googlefonts.github.io/slice-web/test-suite.html)**
   — all 302 conformance cases, each with the reasoning for why that is the right answer.
-- **[Adjudication](https://felipesanches.github.io/slice-web/adjudication.html)** — every
+- **[Adjudication](https://googlefonts.github.io/slice-web/adjudication.html)** — every
   case the original Slice fails, with the measurement behind each verdict.
-- **[The real-world sweep](https://felipesanches.github.io/slice-web/real-world-sweep.html)**
+- **[The real-world sweep](https://googlefonts.github.io/slice-web/real-world-sweep.html)**
   — what happens on 775 real variable fonts from Google Fonts: 177,154 glyphs compared
   against fontTools with no disagreements.
-- **[The behaviour map](https://felipesanches.github.io/slice-web/original-behaviour.html)**
+- **[The behaviour map](https://googlefonts.github.io/slice-web/original-behaviour.html)**
   — the numbered map of the original program's behaviour that the suite is written against.
 
 Absolute URLs rather than filenames, so the same line works in the PDF, on the website and

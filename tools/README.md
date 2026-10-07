@@ -410,7 +410,7 @@ from a user's own link?**
 
 ```sh
 tools/live-check.py FONT                     # the Google Sans Flex report's link
-tools/live-check.py FONT --url 'https://felipesanches.github.io/slice-web/app/?axes=...'
+tools/live-check.py FONT --url 'https://googlefonts.github.io/slice-web/app/?axes=...'
 ```
 
 It opens the link in headless Chromium exactly as a user would paste it, gives the page
@@ -426,6 +426,11 @@ Axis Editor with 18 80 900 0 0 0 and the Name Editor with the link's five names,
 overlap removal on, and saved 222,492 bytes. **0 of 682 glyphs** overlap, and **0 of
 110,224 character pairs** are placed differently from fontTools' instance or from the
 variable font itself.
+
+That run was against `felipesanches.github.io`, where the site lived until the repository
+moved to the googlefonts organisation on 2026-10-07. GitHub Pages does not follow a
+transfer, so the old host now answers 404 and the default link points at
+`googlefonts.github.io` with the same query.
 
 ## `ci-replay.sh`
 
