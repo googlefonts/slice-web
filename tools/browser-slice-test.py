@@ -514,6 +514,30 @@ def main() -> int:
             print(f"  ok   {description}")
 
         # ------------------------------------------------------------------
+        # Reopening the page's own link gives back every name as it was. A link carries
+        # only the rows that were changed -- here just the family -- and applying one
+        # used to replace all nine rows with the link's, blanking every row left alone.
+        # For a family's Regular that row is the subfamily, and a user's Font Book then
+        # refused the font: "'name' table structure".
+        # ------------------------------------------------------------------
+        name_cells = ("[...document.querySelectorAll('.name-editor tbody tr input')]"
+                      ".map(i => i.value)")
+        typed = devtools.evaluate(name_cells)
+        link = devtools.evaluate("location.href")
+        print(f"\nreopening the link the page wrote: {link}")
+        devtools.call("Page.navigate", url=link + ("&" if "?" in link else "?") + "sample")
+        wait_for(lambda: (devtools.evaluate(name_cells, timeout=10) or [""])[0] == typed[0],
+                 "the link's settings to reach the editors", timeout=60)
+        reopened = devtools.evaluate(name_cells)
+        if reopened != typed:
+            print(f"FAIL: reopening the link changed the Name Editor\n"
+                  f"  when sliced: {typed}\n  reopened:    {reopened}", file=sys.stderr)
+            return 1
+        print("  ok   every name comes back as it was, the ones the link leaves out too")
+        # The page reloaded, so the download has to be caught again.
+        devtools.evaluate(CAPTURE_DOWNLOAD)
+
+        # ------------------------------------------------------------------
         # Round two: a partial slice, which takes a different path through the
         # engine and must leave the font variable.
         # ------------------------------------------------------------------

@@ -254,15 +254,7 @@ impl AppState {
         let Some(original) = self.font.with(|font| font.as_ref().map(|f| f.name_edits())) else {
             return current;
         };
-        let mut out = NameEdits::new();
-        for id in slice_core::names::NAME_EDITOR_IDS {
-            let now = current.get(*id).unwrap_or_default();
-            let was = original.get(*id).unwrap_or_default();
-            if now != was {
-                out.set(*id, now);
-            }
-        }
-        out
+        current.changes_from(&original)
     }
 
     /// The bit fields, or zero when they still match the font.
@@ -298,8 +290,12 @@ impl AppState {
         }
         self.axis_text.set(text);
 
-        if settings.names.rows().next().is_some() {
-            self.names.set(settings.names.clone());
+        // A link carries only the rows that were changed, so it is laid over the font's
+        // own names rather than replacing them. Replacing them blanked every row the
+        // link left out -- for a family's Regular, the subfamily "Regular", since that is
+        // what the font already says -- and an empty name ID 2 fails Font Book.
+        if let Some(own) = self.font.with(|font| font.as_ref().map(|f| f.name_edits())) {
+            self.names.set(own.with_changes(&settings.names));
         }
         if settings.bits != slice_core::BitFlags::default() {
             self.bits.set(settings.bits);

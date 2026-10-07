@@ -52,10 +52,10 @@ impl Settings {
             parts.push(format!("axes={}", encode_keeping(&joined, "=,:")));
         }
 
-        for id in NAME_EDITOR_IDS {
-            if let Some(value) = self.names.get(*id) {
-                parts.push(format!("n{id}={}", encode_keeping(value, "")));
-            }
+        // Only the rows that were changed, and a cleared row as `n16=`: a link applied to
+        // a font replaces the rows it carries and leaves the rest as the font has them.
+        for (id, value) in self.names.explicit_rows() {
+            parts.push(format!("n{id}={}", encode_keeping(value, "")));
         }
 
         // The raw fields, so bits the editor does not expose survive a round trip too.
@@ -249,6 +249,51 @@ mod tests {
         let original = sample();
         let parsed = Settings::from_query(&original.to_query());
         assert_eq!(parsed, original);
+    }
+
+    #[test]
+    fn the_regular_of_a_family_keeps_its_subfamily_through_its_own_link() {
+        // What a user hit: the Regular's names, typed in, sliced, bookmarked by the app
+        // and opened again. Its subfamily is never in the link -- the font already says
+        // "Regular" -- and reopening the link used to blank it, so the slice came out
+        // with an empty name ID 2 and Font Book refused the font.
+        let mut font = NameEdits::new();
+        font.set(1, "Google Sans Flex")
+            .set(2, "Regular")
+            .set(3, "4.005;GOOG;GoogleSansFlex-Regular")
+            .set(4, "Google Sans Flex Regular")
+            .set(6, "GoogleSansFlex-Regular")
+            .set(16, "Google Sans Flex");
+        let mut typed = font.clone();
+        typed
+            .set(1, "Google Sans Flex Condensed")
+            .set(3, "4.005;GOOG;GoogleSansFlex-Condensed-Regular")
+            .set(4, "Google Sans Flex Condensed Regular")
+            .set(6, "GoogleSansFlex-Condensed-Regular")
+            .set(16, "");
+
+        let link = Settings {
+            names: typed.changes_from(&font),
+            ..Settings::default()
+        }
+        .to_query();
+        assert!(
+            !link.contains("n2="),
+            "an unchanged row has no business in a link: {link}"
+        );
+        assert!(
+            link.contains("n16=&") || link.ends_with("n16="),
+            "a cleared row is said: {link}"
+        );
+
+        let reopened = font.with_changes(&Settings::from_query(&link).names);
+        assert_eq!(reopened.get(2), Some("Regular"));
+        assert_eq!(
+            reopened.get(16),
+            None,
+            "and the cleared row is cleared again"
+        );
+        assert_eq!(reopened, typed);
     }
 
     #[test]

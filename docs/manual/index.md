@@ -89,7 +89,8 @@ are ignored rather than complained about.
 
 Only what you changed is recorded. The Name Editor arrives prefilled from the font, so
 rows you left alone are not carried — that keeps the address short enough to read, and
-loading the font restores them anyway.
+loading the font restores them anyway. A row you cleared is carried as an empty value
+(`n16=`), so clearing it, which deletes an optional record, survives the link too.
 
 It is an ordinary URL, so you can edit it by hand: the part after `axes=` is exactly the
 syntax the Axis Editor takes.

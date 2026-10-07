@@ -82,6 +82,48 @@ impl NameEdits {
             .map(move |&id| (id, self.get_or_empty(id)))
     }
 
+    /// The rows held explicitly, in editor order -- an explicitly emptied row included,
+    /// a row never set left out. This is what a link carries.
+    pub fn explicit_rows(&self) -> impl Iterator<Item = (u16, &str)> {
+        NAME_EDITOR_IDS
+            .iter()
+            .filter_map(move |&id| self.values.get(&id).map(|text| (id, text.as_str())))
+    }
+
+    /// The rows of these edits that differ from `original`, for a link to carry.
+    ///
+    /// A row the user cleared is kept as an explicit empty string, so the link can say
+    /// "clear this" rather than say nothing about it: clearing an optional row is how a
+    /// record gets deleted.
+    pub fn changes_from(&self, original: &NameEdits) -> NameEdits {
+        let mut out = NameEdits::new();
+        for &id in NAME_EDITOR_IDS {
+            let now = self.get_or_empty(id);
+            if now != original.get_or_empty(id) {
+                out.set(id, now);
+            }
+        }
+        out
+    }
+
+    /// These rows, with every row `changes` holds explicitly replaced -- an explicit empty
+    /// string included. A row `changes` does not mention keeps its value here.
+    ///
+    /// This is how a link is applied to the font it is opened with. A link carries only
+    /// the rows that were changed, so a row it leaves out means "as the font has it", not
+    /// "blank". Applying a link used to replace all nine rows with the link's, which
+    /// blanked every row the user had left alone. For a family's Regular that row is the
+    /// subfamily, "Regular" -- the one name its link never carries, because the font
+    /// already says it -- and a font with an empty name ID 2 is what Font Book rejects
+    /// as "'name' table structure".
+    pub fn with_changes(&self, changes: &NameEdits) -> NameEdits {
+        let mut out = self.clone();
+        for (&id, text) in &changes.values {
+            out.values.insert(id, text.clone());
+        }
+        out
+    }
+
     /// The records to write, and the records to delete, when applying these edits.
     ///
     /// Mandatory IDs are always written. Optional IDs are written when the user typed
@@ -147,5 +189,70 @@ mod tests {
         let (writes, deletes) = edits.plan();
         assert!(writes.contains(&(16, " ".to_string())));
         assert!(!deletes.contains(&16));
+    }
+
+    /// Google Sans Flex's own names, as the Name Editor loads them.
+    fn google_sans_flex() -> NameEdits {
+        let mut font = NameEdits::new();
+        font.set(1, "Google Sans Flex")
+            .set(2, "Regular")
+            .set(3, "4.005;GOOG;GoogleSansFlex-Regular")
+            .set(4, "Google Sans Flex Regular")
+            .set(6, "GoogleSansFlex-Regular");
+        font
+    }
+
+    /// The names a user types for the Regular of a condensed family: everything changes
+    /// except the subfamily, which is already "Regular".
+    fn condensed_regular() -> NameEdits {
+        let mut edits = google_sans_flex();
+        edits
+            .set(1, "Google Sans Flex Condensed")
+            .set(3, "4.005;GOOG;GoogleSansFlex-Condensed-Regular")
+            .set(4, "Google Sans Flex Condensed Regular")
+            .set(6, "GoogleSansFlex-Condensed-Regular");
+        edits
+    }
+
+    #[test]
+    fn a_row_the_link_leaves_out_keeps_the_fonts_value() {
+        // The bug a user hit: the link for the Regular carries no subfamily, because it
+        // matches the font, and reopening the link used to blank it -- an empty name
+        // ID 2, which Font Book reports as "'name' table structure".
+        let font = google_sans_flex();
+        let link = condensed_regular().changes_from(&font);
+        assert_eq!(link.get(2), None, "an unchanged row is not carried");
+
+        let restored = font.with_changes(&link);
+        assert_eq!(restored.get(2), Some("Regular"));
+        assert_eq!(restored, condensed_regular());
+    }
+
+    #[test]
+    fn a_cleared_row_is_carried_and_cleared_again() {
+        // Clearing an optional row deletes the record, so a link has to be able to say
+        // "clear this", not merely say nothing about the row.
+        let mut font = google_sans_flex();
+        font.set(16, "Google Sans Flex");
+        let mut edits = font.clone();
+        edits.set(16, "");
+
+        let link = edits.changes_from(&font);
+        assert_eq!(link.explicit_rows().collect::<Vec<_>>(), vec![(16, "")]);
+
+        let restored = font.with_changes(&link);
+        assert_eq!(restored.get(16), None);
+        assert!(
+            restored.plan().1.contains(&16),
+            "the record is still deleted"
+        );
+    }
+
+    #[test]
+    fn nothing_changed_means_nothing_to_carry() {
+        let font = google_sans_flex();
+        let link = font.changes_from(&font);
+        assert_eq!(link.explicit_rows().count(), 0);
+        assert_eq!(font.with_changes(&link), font);
     }
 }

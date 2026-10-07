@@ -129,7 +129,7 @@ After a successful slice, the page's own address describes it:
 
 Bookmark the page and the bookmark is the recipe. Open it later and the editors fill themselves in; open it with a \emph{different} font and whatever still applies is restored, so a bookmark that pins a weight works on the next family too. Axes the font does not have are ignored rather than complained about.
 
-Only what you changed is recorded. The Name Editor arrives prefilled from the font, so rows you left alone are not carried --- that keeps the address short enough to read, and loading the font restores them anyway.
+Only what you changed is recorded. The Name Editor arrives prefilled from the font, so rows you left alone are not carried --- that keeps the address short enough to read, and loading the font restores them anyway. A row you cleared is carried as an empty value (\texttt{n16=}), so clearing it, which deletes an optional record, survives the link too.
 
 It is an ordinary URL, so you can edit it by hand: the part after \texttt{axes=} is exactly the syntax the Axis Editor takes.
 
