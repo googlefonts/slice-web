@@ -243,6 +243,31 @@ def sample_font() -> Path:
     return REPO_ROOT / "web" / "fonts" / match.group(1)
 
 
+def name_string(font: bytes, name_id: int) -> str | None:
+    """The Windows English (3/1/0x409) record for `name_id` in an sfnt; None if absent."""
+    tables = struct.unpack(">H", font[4:6])[0]
+    for i in range(tables):
+        tag, _, offset, _ = struct.unpack(">4sIII", font[12 + 16 * i: 28 + 16 * i])
+        if tag == b"name":
+            break
+    else:
+        return None
+    _, count, strings = struct.unpack(">HHH", font[offset: offset + 6])
+    for i in range(count):
+        record = struct.unpack(">HHHHHH", font[offset + 6 + 12 * i: offset + 18 + 12 * i])
+        if record[:4] == (3, 1, 0x409, name_id):
+            start = offset + strings + record[5]
+            return font[start: start + record[4]].decode("utf-16-be")
+    return None
+
+
+def style_bits(report: str) -> tuple[str, str]:
+    """fsSelection and macStyle, as `slice info` prints them."""
+    fs = re.search(r"OS/2\.fsSelection\s+([01]{16})", report)
+    mac = re.search(r"head\.macStyle\s+([01]{16})", report)
+    return (fs.group(1) if fs else "?", mac.group(1) if mac else "?")
+
+
 def find_browser() -> str | None:
     for candidate in ("chromium", "chromium-browser", "google-chrome", "chrome"):
         found = shutil.which(candidate)
@@ -512,6 +537,28 @@ def main() -> int:
                 print(f"FAIL: {description} (looked for {needle!r})", file=sys.stderr)
                 return 1
             print(f"  ok   {description}")
+
+        # The font has to say what the editors said -- every row, not only the one the
+        # test typed. From a9dceae until this check existed, the page gave the job only the
+        # rows that differed from the font: every other mandatory name came out as an empty
+        # string, the typographic names were deleted, and fsSelection and macStyle were
+        # zeroed unless a bit had been edited. This test looked only at the family name.
+        cells = devtools.evaluate(
+            "[...document.querySelectorAll('.name-editor tbody tr input')].map(i => i.value)")
+        for row, cell in zip([1, 2, 3, 4, 6, 16, 17, 21, 22], cells):
+            got = name_string(font_bytes, row)
+            want = cell if (cell or row in (1, 2, 3, 4, 6)) else None
+            if got != want:
+                print(f"FAIL: name ID {row} is {got!r} in the font, but the Name Editor "
+                      f"showed {cell!r}", file=sys.stderr)
+                return 1
+        print("  ok   every name in the font is what the Name Editor showed")
+        if style_bits(report.stdout) != style_bits(source_report.stdout):
+            print(f"FAIL: the style bits changed though nobody touched them: "
+                  f"{style_bits(source_report.stdout)} in the sample, "
+                  f"{style_bits(report.stdout)} in the slice", file=sys.stderr)
+            return 1
+        print("  ok   fsSelection and macStyle are the sample's own, as nobody edited them")
 
         # ------------------------------------------------------------------
         # Reopening the page's own link gives back every name as it was. A link carries

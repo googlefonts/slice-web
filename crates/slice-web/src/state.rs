@@ -166,10 +166,15 @@ impl AppState {
             let entry = text.get(index).map(String::as_str).unwrap_or("");
             limits.push(parse_axis_limit(entry, &axis.tag)?);
         }
+        // The whole editor state, not the rows that differ from the font. The job writes
+        // names 1, 2, 3, 4 and 6 from what it is given and deletes optional rows it is not
+        // given, so handing it only the changes -- as a9dceae did, reusing what the
+        // address bar needs -- wrote every untouched name as an empty string, deleted the
+        // typographic names, and zeroed fsSelection and macStyle unless a bit was edited.
         Ok(SliceJob {
             limits,
-            names: self.changed_names(),
-            bits: self.changed_bits(),
+            names: self.names.get(),
+            bits: self.bits.get(),
             remove_overlaps: self.remove_overlaps.get(),
             format: self.format.get(),
         })
