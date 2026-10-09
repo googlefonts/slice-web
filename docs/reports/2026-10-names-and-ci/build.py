@@ -27,8 +27,9 @@ Usage
 The two dist directories are `./build.sh` output: `--before-dist` from e7d44f7, the last
 build before the name fixes (a `git worktree` gives one), `--after-dist` from this
 checkout.
-Writes one-pager.pdf beside this script and a PNG preview with --png. Needs chromium
-and target/release/slice; nothing else outside the standard library.
+Writes slice-fixes-empty-names-and-ci-2026-10-08.pdf beside this script, and a PNG
+preview with --png. Needs chromium and target/release/slice; nothing else outside the
+standard library.
 """
 
 from __future__ import annotations
@@ -582,7 +583,7 @@ def main() -> int:
 
         html_path = work / "one-pager.html"
         html_path.write_text(page(work, before, after, runs, source_bits, gsf_bits))
-        pdf = HERE / "one-pager.pdf"
+        pdf = HERE / "slice-fixes-empty-names-and-ci-2026-10-08.pdf"
         common = [chromium, "--headless", "--disable-gpu", "--no-pdf-header-footer",
                   "--virtual-time-budget=5000"]
         subprocess.run([*common, f"--print-to-pdf={pdf}", html_path.as_uri()], check=True,

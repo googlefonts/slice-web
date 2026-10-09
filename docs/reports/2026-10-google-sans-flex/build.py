@@ -18,9 +18,10 @@ Usage
 
 `--before` is a `slice` binary built from 73f9f96, the commit the report was made
 against (a `git worktree` and `cargo build --release -p slice-cli` give one). `--after`
-defaults to this checkout's target/release/slice. Writes one-pager.pdf beside this
-script, and a PNG preview wherever --png says. Needs chromium, and network access the first time
-to set up `.report-venv/` at the repository root.
+defaults to this checkout's target/release/slice. Writes
+slice-fixes-overlaps-and-kerning-2026-10-06.pdf beside this script, and a PNG preview
+wherever --png says. Needs chromium, and network access the first time to set up
+`.report-venv/` at the repository root.
 """
 
 from __future__ import annotations
@@ -495,7 +496,7 @@ def main() -> int:
 
         page_path = work / "one-pager.html"
         page_path.write_text(page(work, args.gsf))
-        pdf = HERE / "one-pager.pdf"
+        pdf = HERE / "slice-fixes-overlaps-and-kerning-2026-10-06.pdf"
         common = [chromium, "--headless", "--disable-gpu", "--no-pdf-header-footer",
                   "--virtual-time-budget=5000"]
         subprocess.run([*common, f"--print-to-pdf={pdf}", page_path.as_uri()], check=True,

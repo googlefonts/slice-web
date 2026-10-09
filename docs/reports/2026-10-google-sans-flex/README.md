@@ -1,6 +1,6 @@
 # One report, three fixes — October 2026
 
-[`one-pager.pdf`](one-pager.pdf) summarises, on one A4 page, what followed from a user's
+[`slice-fixes-overlaps-and-kerning-2026-10-06.pdf`](slice-fixes-overlaps-and-kerning-2026-10-06.pdf) summarises, on one A4 page, what followed from a user's
 report that Google Sans Flex Condensed Black still had overlaps after "Remove overlapping
 contours":
 

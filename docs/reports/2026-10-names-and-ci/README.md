@@ -1,6 +1,6 @@
 # Two more fixes, and a move — October 2026
 
-[`one-pager.pdf`](one-pager.pdf) is the follow-up to
+[`slice-fixes-empty-names-and-ci-2026-10-08.pdf`](slice-fixes-empty-names-and-ci-2026-10-08.pdf) is the follow-up to
 [the first one-pager](../2026-10-google-sans-flex/), on one A4 page:
 
 4. **Names nobody edited were saved empty** (7fe0c72, with d48bba1). From a9dceae
